@@ -1,2 +1,170 @@
-# queen
-queensuper
+if not game:IsLoaded() then game.Loaded:Wait() end
+do
+  repeat
+            wait()
+            pcall(function()
+                for i, v in getconnections(game:GetService("Players").LocalPlayer.PlayerGui["Main (minimal)"].ChooseTeam.Container["Marines"].Frame.TextButton.Activated) do
+                    v.Function()
+                end
+            end)
+            task.wait(3)
+        until not game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("Main (minimal)")
+		wait(1)
+end
+
+local player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CommF = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+local cousinPos = Vector3.new(-395.59, 73.33, 281.21)
+
+-- Sau khi chọn team thì phải CHỜ nhân vật spawn
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+local function tween(targetPos, Speed)
+    local Speed = Speed or 200
+
+    if not root or not character then return end
+
+    local bodyPosition = Instance.new("BodyPosition")
+    bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyPosition.Position = targetPos + Vector3.new(1, 40, 0)
+    bodyPosition.D = 2500 -- Damping
+    bodyPosition.P = 3000 -- Power
+    bodyPosition.Parent = root
+
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Anti-gravity
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = root
+    
+    local distance = (targetPos - root.Position).Magnitude
+    local duration = distance / Speed 
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+    local goal = {CFrame = CFrame.new(Vector3.new(1, 40, 0) + targetPos)}
+
+    local tween = TweenService:Create(root, tweenInfo, goal)
+    tween:Play()
+    
+    return tween -- Return tween for further control
+end
+
+local function DropFruit()
+    local back = player.Backpack
+    local char = player.Character
+    if not char then return false end
+
+    for _, v in pairs(char:GetChildren()) do
+        if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+
+            local eatRemote = v:FindFirstChild("EatRemote")
+            if eatRemote then
+                    eatRemote:InvokeServer("Drop")
+                end
+            end
+        end
+
+        for _, v in pairs(back:GetChildren()) do
+        if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+
+            v.Parent = char
+            print("Đã trang bị:", v.Name)
+
+                if v.Parent == char then
+                   local eatRemote = v:FindFirstChild("EatRemote")
+                    if eatRemote then
+                    eatRemote:InvokeServer("Drop")
+                   return true
+                    end
+                end
+            end
+        end   
+    return false
+end
+ 
+
+local function clickAndHide(button)
+    if not (button and button:IsA("GuiButton") and button.Visible) then 
+        return 
+    end
+    
+    -- Try multiple click methods
+    pcall(function() button:Activate() end)
+    
+    if typeof(firesignal) == "function" then
+        pcall(function() 
+            if button.Activated then 
+                firesignal(button.Activated) 
+            end 
+        end)
+    end
+end
+
+-- Check if button is a close/exit button
+local function isCloseButton(button)
+    if not button:IsA("GuiButton") then 
+        return false 
+    end
+    
+    local name = (button.Name or ""):lower()
+    local text = ""
+    
+    if button:IsA("TextButton") then
+        text = (button.Text or ""):lower()
+    end
+    
+    -- Check for close button patterns
+    local closePatterns = {"close"}
+    
+    for _, pattern in pairs(closePatterns) do
+        if name == pattern or text == pattern or name:find(pattern) or text:find(pattern) then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Close all popup dialogs
+local function closeAllPopups()
+    local gui = player:FindFirstChild("PlayerGui")
+    if not gui then return false end
+    local foundPopup = false
+    for _, descendant in ipairs(player:GetDescendants()) do
+        if isCloseButton(descendant) then
+            clickAndHide(descendant)
+            foundPopup = true
+        end
+    end
+    return foundPopup 
+end
+
+spawn(function()
+    while task.wait(0.2) do
+        closeAllPopups()
+    end
+end)
+
+local function BuyRandomFruit()
+local success, result = pcall(function()
+    return CommF:InvokeServer("Cousin", "Buy")
+end)
+if success then closeAllPopups() end
+end
+
+local function teleandrop()
+    local telefruit = tween(cousinPos)
+    if telefruit then
+        telefruit.Completed:Wait()-- chờ teleport xong
+        DropFruit()
+    end
+end
+
+
+spawn(function()
+    BuyRandomFruit()
+    task.wait(0.5)
+    teleandrop()
+    task.wait(0.5)
+end)
