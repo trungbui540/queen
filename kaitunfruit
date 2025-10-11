@@ -16,7 +16,7 @@ local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CommF = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
-local cousinPos = Vector3.new(-395.59, 73.33, 281.21)
+local cousinPos = Vector3.new(-906.38, 73.27, -60.37)
 
 -- Sau khi chọn team thì phải CHỜ nhân vật spawn
 local character = player.Character or player.CharacterAdded:Wait()
@@ -29,15 +29,10 @@ local function tween(targetPos, Speed)
 
     local bodyPosition = Instance.new("BodyPosition")
     bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyPosition.Position = targetPos + Vector3.new(1, 40, 0)
+    bodyPosition.Position = targetPos + Vector3.new(5, 40, 10)
     bodyPosition.D = 2500 -- Damping
     bodyPosition.P = 3000 -- Power
     bodyPosition.Parent = root
-
-    local bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Anti-gravity
-    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-    bodyVelocity.Parent = root
     
     local distance = (targetPos - root.Position).Magnitude
     local duration = distance / Speed 
@@ -49,6 +44,7 @@ local function tween(targetPos, Speed)
     
     return tween -- Return tween for further control
 end
+
 
 local function DropFruit()
     local back = player.Backpack
@@ -83,7 +79,6 @@ local function DropFruit()
     return false
 end
  
-
 local function clickAndHide(button)
     if not (button and button:IsA("GuiButton") and button.Visible) then 
         return 
@@ -106,7 +101,7 @@ local function isCloseButton(button)
     if not button:IsA("GuiButton") then 
         return false 
     end
-    
+     
     local name = (button.Name or ""):lower()
     local text = ""
     
@@ -157,10 +152,21 @@ local function teleandrop()
     local telefruit = tween(cousinPos)
     if telefruit then
         telefruit.Completed:Wait()-- chờ teleport xong
-        DropFruit()
+        
+        for i = 1, 3 do
+            DropFruit()
+            task.wait(0.5)
+        end
+
+        -- Bay lên cao
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Anti-gravity
+    bodyVelocity.Velocity = Vector3.new(1, 40, 0)
+    bodyVelocity.Parent = root
+                    task.Wait(3)
+                    game:Shutdown()
     end
 end
-
 
 spawn(function()
     BuyRandomFruit()
