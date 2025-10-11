@@ -23,7 +23,7 @@ local character = player.Character or player.CharacterAdded:Wait()
 local root = character:WaitForChild("HumanoidRootPart")
 
 local function tween(targetPos, Speed)
-    local Speed = Speed or 200
+    local Speed = Speed or 100
 
     if not root or not character then return end
 
