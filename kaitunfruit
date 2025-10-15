@@ -163,7 +163,7 @@ local function teleandrop()
     bodyVelocity.MaxForce = Vector3.new(0, math.huge, 0) -- Anti-gravity
     bodyVelocity.Velocity = Vector3.new(1, 40, 0)
     bodyVelocity.Parent = root
-                    task.wait(4)
+                    task.wait(1)
                     game:Shutdown()
     end
 end
