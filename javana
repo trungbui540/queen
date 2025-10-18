@@ -1,0 +1,139 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local plr = Players.LocalPlayer
+local character = plr.Character or plr.CharacterAdded:Wait()
+local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
+local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
+local Backpack = plr:FindFirstChild("Backpack")
+local giftedCount = {}
+local giftQueue = {}
+
+-- Update character khi respawn
+plr.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    task.wait(1)
+    Backpack = plr:FindFirstChild("Backpack")
+end)
+
+-- Hook auto accept
+local function hookAllRemotes()
+    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+        if obj:IsA("RemoteEvent") and obj.OnClientEvent then
+            obj.OnClientEvent:Connect(function(...)
+                local args = {...}
+                for _, arg in pairs(args) do
+                    if typeof(arg) == "table" and arg.ID and typeof(arg.ID) == "number" and arg.ID > 1000000000 then
+                        table.insert(giftQueue, arg.ID)
+                    end
+                end
+            end)
+        end
+    end
+end
+
+hookAllRemotes()
+
+-- Auto accept loop
+spawn(function()
+    while task.wait(1) do
+        if _G.CF.acceptGifts and #giftQueue > 0 then
+            local giftID = table.remove(giftQueue, 1)
+            pcall(function()
+                acceptRemote:FireServer({ID = giftID})
+                print("✅ Accepted gift:", giftID)
+            end)
+        end
+    end
+end)
+
+local function ToGift()
+    local receivers = type(_G.CF.Sender) == "table" and _G.CF.Sender or {_G.CF.Sender}
+    local Humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then
+        warn("❌ Humanoid không tồn tại")
+        return
+    end
+    
+    local totalSent = 0
+    local COOLDOWN = _G.CF.giftCooldown or 10
+    
+    for _, receiverName in pairs(receivers) do
+        local receiver = Players:FindFirstChild(receiverName)
+        for _, petName in pairs(_G.CF.ListPetGift) do
+            local foundPet = false
+            
+            for _, item in pairs(Backpack:GetChildren()) do
+                if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) then
+                    foundPet = true
+                    print("✅ Tìm thấy pet:", item.Name)
+                    
+                    task.wait(0.3)
+                    
+                    -- Equip pet
+                    local equipSuccess = pcall(function()
+                        Humanoid:EquipTool(item)
+                    end)
+                    
+                    if not equipSuccess then
+                        warn("❌ Không thể equip:", item.Name)
+                        break
+                    end
+                    
+                    task.wait(0.5)
+                    
+                    -- Tìm tool trong character 
+                    local petTool = character:FindFirstChildOfClass("Tool")
+                    
+                    if petTool and string.find(petTool.Name:lower(), petName:lower()) then
+                        print("🎁 Pet đã equip trong character:", petTool.Name)
+                        
+                        -- GỬI ĐÚNG FORMAT
+                        local args = {{Item = petTool, ToGift = receiverName}}
+                        local success, err = pcall(function()
+                            giftRemote:FireServer(unpack(args))
+                        end)
+                        
+                        if success then
+                            print("📤 ĐÃ GỬI:", petTool.Name, "cho", receiverName)
+                            totalSent = totalSent + 1
+                            
+                            if not giftedCount[receiverName] then
+                                giftedCount[receiverName] = {}
+                            end
+                            giftedCount[receiverName][petTool.Name] = (giftedCount[receiverName][petTool.Name] or 0) + 1
+                            
+                            print("⏳ Đợi cooldown " .. COOLDOWN .. " giây...")
+                            task.wait(COOLDOWN)
+                        else
+                            warn("❌ LỖI KHI GỬI:", err)
+                        end
+                    else
+                        warn("⚠️ Pet không được equip vào character")
+                        if petTool then
+                            print("  - Tool hiện tại:", petTool.Name)
+                        else
+                            print("  - Không có tool nào trong character")
+                        end
+                    end
+                    
+                    break
+                end
+            end
+            
+            if not foundPet then
+                warn("⚠️ Không tìm thấy pet:", petName)
+            end
+        end
+    end
+    
+    print("✅ HOÀN TẤT! Đã gửi:", totalSent, "pet(s)")
+end
+
+-- Auto send gift loop
+spawn(function()
+    while task.wait(5) do
+        if _G.CF.autoSendGift then
+            ToGift()
+        end
+    end
+end)
