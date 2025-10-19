@@ -16,32 +16,6 @@ plr.CharacterAdded:Connect(function(newChar)
     Backpack = plr:FindFirstChild("Backpack")
 end)
 
-
-local function removeAllPetsFromPlots()
-    local count = 0
-    -- Loop qua tất cả plots
-    for _, plot in pairs(workspace.Plots:GetChildren()) do
-        local hitboxes = plot:FindFirstChild("Hitboxes")
-        
-        if hitboxes then
-            -- Loop qua tất cả pet trong Hitboxes
-            for _, pet in pairs(hitboxes:GetChildren()) do
-                local success = pcall(function()
-                    removeRemote:FireServer(pet.Name)
-                end)
-                
-                if success then
-                    print("🗑️ Đã xóa:", pet.Name, "từ", plot.Name)
-                    count = count + 1
-                    task.wait(0.3)  -- Delay tránh spam
-                end
-            end
-        end
-    end
-end
-
-removeAllPetsFromPlots()
-
 -- Hook auto accept
 local function hookAllRemotes()
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
@@ -148,7 +122,27 @@ local function isPetSender(playerName)
     end
 end
 
+local function removeAllPetsFromPlots()
+    local count = 0
+    
+    for _, plot in pairs(workspace.Plots:GetChildren()) do
+        local hitboxes = plot:FindFirstChild("Hitboxes")
+        
+        if hitboxes then
+            for _, pet in pairs(hitboxes:GetChildren()) do
+                local success, err = pcall(function()
+                    removeRemote:FireServer(pet.Name)
+                end)
+                if success then
+                    count = count + 1
+                    task.wait(0.3)
+                end
+            end
+        end
+    end
+end
 
+removeAllPetsFromPlots()
 
 -- Auto send gift loop
 spawn(function()
