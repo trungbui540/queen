@@ -4,6 +4,7 @@ local plr = Players.LocalPlayer
 local character = plr.Character or plr.CharacterAdded:Wait()
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
+local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
 local Backpack = plr:FindFirstChild("Backpack")
 local giftedCount = {}
 local giftQueue = {}
@@ -14,6 +15,32 @@ plr.CharacterAdded:Connect(function(newChar)
     task.wait(1)
     Backpack = plr:FindFirstChild("Backpack")
 end)
+
+
+local function removeAllPetsFromPlots()
+    local count = 0
+    -- Loop qua tất cả plots
+    for _, plot in pairs(workspace.Plots:GetChildren()) do
+        local hitboxes = plot:FindFirstChild("Hitboxes")
+        
+        if hitboxes then
+            -- Loop qua tất cả pet trong Hitboxes
+            for _, pet in pairs(hitboxes:GetChildren()) do
+                local success = pcall(function()
+                    removeRemote:FireServer(pet.Name)
+                end)
+                
+                if success then
+                    print("🗑️ Đã xóa:", pet.Name, "từ", plot.Name)
+                    count = count + 1
+                    task.wait(0.3)  -- Delay tránh spam
+                end
+            end
+        end
+    end
+end
+
+removeAllPetsFromPlots()
 
 -- Hook auto accept
 local function hookAllRemotes()
@@ -47,13 +74,8 @@ spawn(function()
 end)
 
 local function ToGift()
-    local receivers = type(_G.CF.Sender) == "table" and _G.CF.Sender or {_G.CF.Sender}
+    local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not Humanoid then
-        warn("❌ Humanoid không tồn tại")
-        return
-    end
-    
     local totalSent = 0
     local COOLDOWN = _G.CF.giftCooldown or 10
     
@@ -65,7 +87,6 @@ local function ToGift()
             for _, item in pairs(Backpack:GetChildren()) do
                 if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) then
                     foundPet = true
-                    print("✅ Tìm thấy pet:", item.Name)
                     
                     task.wait(0.3)
                     
@@ -73,20 +94,11 @@ local function ToGift()
                     local equipSuccess = pcall(function()
                         Humanoid:EquipTool(item)
                     end)
-                    
-                    if not equipSuccess then
-                        warn("❌ Không thể equip:", item.Name)
-                        break
-                    end
-                    
                     task.wait(0.5)
                     
                     -- Tìm tool trong character 
                     local petTool = character:FindFirstChildOfClass("Tool")
-                    
                     if petTool and string.find(petTool.Name:lower(), petName:lower()) then
-                        print("🎁 Pet đã equip trong character:", petTool.Name)
-                        
                         -- GỬI ĐÚNG FORMAT
                         local args = {{Item = petTool, ToGift = receiverName}}
                         local success, err = pcall(function()
@@ -101,8 +113,6 @@ local function ToGift()
                                 giftedCount[receiverName] = {}
                             end
                             giftedCount[receiverName][petTool.Name] = (giftedCount[receiverName][petTool.Name] or 0) + 1
-                            
-                            print("⏳ Đợi cooldown " .. COOLDOWN .. " giây...")
                             task.wait(COOLDOWN)
                         else
                             warn("❌ LỖI KHI GỬI:", err)
@@ -128,6 +138,17 @@ local function ToGift()
     
     print("✅ HOÀN TẤT! Đã gửi:", totalSent, "pet(s)")
 end
+
+local function isPetSender(playerName)
+    if _G.CF and _G.CF.Receivers then
+        local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
+        return not table.find(receivers, playerName)
+    else
+        return true
+    end
+end
+
+
 
 -- Auto send gift loop
 spawn(function()
