@@ -249,9 +249,14 @@ local function removeAllPetsFromPlots()
 end
 
 spawn(function()
-    while task.wait(3) do 
+    while task.wait(3) do
     if _G.CF.removeAllPets then
-    removeAllPetsFromPlots()
+            removeAllPetsFromPlots()
+       end
+    end
+end)
+-- Auto send gift loop (unchanged structure, uses ToGift)
+spawn(function()
     while task.wait(5) do
         if _G.CF.autoSendGift then
             ToGift()
