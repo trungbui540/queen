@@ -3,97 +3,195 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local plr = Players.LocalPlayer
-local LocalPlayer = plr
 local character = plr.Character or plr.CharacterAdded:Wait()
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
 local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
-local Backpack = plr:FindFirstChild("Backpack")
-local giftedCount, giftQueue = {}, {}
+local Backpack = plr:FindFirstChild("Backpack") or plr:WaitForChild("Backpack")
+local giftedCount = {}
+local giftQueue = {}
 
+-- helper: safe print with prefix
+local function LOG(...)
+    print("[GIFT_TOOL]", ...)
+end
+local function WARN(...)
+    warn("[GIFT_TOOL]", ...)
+end
+
+-- ensure character/backpack ready on respawn
 plr.CharacterAdded:Connect(function(newChar)
     character = newChar
-    task.wait(1)
+    repeat task.wait() until plr:FindFirstChild("Backpack")
     Backpack = plr:FindFirstChild("Backpack")
 end)
 
+-- ===== improved hookAllRemotes: collect incoming gift notifications =====
 local function hookAllRemotes()
+    -- clear existing queue
+    giftQueue = {}
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") and obj.OnClientEvent then
-            obj.OnClientEvent:Connect(function(...)
-                for _, arg in pairs({...}) do
-                    if typeof(arg) == "table" and arg.ID and typeof(arg.ID) == "number" and arg.ID > 1000000000 then
-                        table.insert(giftQueue, arg.ID)
+        if obj:IsA("RemoteEvent") then
+            -- protect with pcall: some objects may error on indexing
+            pcall(function()
+                obj.OnClientEvent:Connect(function(...)
+                    local args = {...}
+                    -- debug: print remote name and args (comment out if spammy)
+                    -- LOG("OnClientEvent from", obj:GetFullName(), "argsCount:", #args)
+                    for _, arg in pairs(args) do
+                        if typeof(arg) == "table" and arg.ID and typeof(arg.ID) == "number" and arg.ID > 1000000000 then
+                            -- prevent duplicates
+                            if not table.find(giftQueue, arg.ID) then
+                                table.insert(giftQueue, arg.ID)
+                                LOG("Queued gift ID:", arg.ID, "from", obj:GetFullName())
+                            end
+                        elseif typeof(arg) == "number" and arg > 1000000000 then
+                            -- sometimes remote sends ID as number directly
+                            if not table.find(giftQueue, arg) then
+                                table.insert(giftQueue, arg)
+                                LOG("Queued gift ID (num):", arg, "from", obj:GetFullName())
+                            end
+                        end
                     end
-                end
+                end)
             end)
         end
     end
+    LOG("hookAllRemotes done")
 end
 
+-- Auto accept loop (robust): try both table and direct numeric calls
 spawn(function()
     hookAllRemotes()
     while task.wait(1) do
         if _G.CF.acceptGifts and #giftQueue > 0 then
             local giftID = table.remove(giftQueue, 1)
-            pcall(function()
+            local ok, err
+            -- try both common formats:
+            ok, err = pcall(function()
                 acceptRemote:FireServer({ID = giftID})
-                print("✅ Accepted gift:", giftID)
             end)
+            if not ok then
+                -- try alternate format: acceptRemote:FireServer(giftID)
+                ok, err = pcall(function()
+                    acceptRemote:FireServer(giftID)
+                end)
+            end
+            if ok then
+                LOG("✅ Accepted gift:", giftID)
+            else
+                WARN("❌ Failed acceptRemote for", giftID, "err:", err)
+            end
         end
     end
 end)
 
+-- ===== improved ToGift: supports parallel sends, retries, tries multiple remote formats =====
+local function tryFireGiftFormat(petTool, receiverName)
+    -- try 3 common formats, return true on first success
+    local success
+    -- format 1: table {Item = petTool, ToGift = receiver}
+    success = pcall(function()
+        giftRemote:FireServer({Item = petTool, ToGift = receiverName})
+    end)
+    if success then return true end
+
+    success = pcall(function()
+        giftRemote:FireServer(petTool, receiverName)
+    end)
+    if success then return true end
+
+    success = pcall(function()
+        giftRemote:FireServer(petTool)
+    end)
+    if success then return true end
+
+    return false
+end
+
+local function sendSingleGift(item, receiverName)
+    -- equips and sends one pet, safe with retries
+    local Humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then
+        WARN("No Humanoid for equip, skipping", item.Name)
+        return false
+    end
+
+    -- try to equip multiple times
+    local equipOk = false
+    for i = 1, 3 do
+        local ok = pcall(function() Humanoid:EquipTool(item) end)
+        if ok then
+            task.wait(0.25)
+            local cur = character and character:FindFirstChildOfClass("Tool")
+            if cur and cur == item then
+                equipOk = true
+                break
+            end
+        end
+        task.wait(0.2)
+    end
+    if not equipOk then
+        WARN("Failed to equip", item.Name)
+        return false
+    end
+
+    task.wait(0.4)
+
+    local sent = tryFireGiftFormat(item, receiverName)
+    if sent then
+        LOG("📤 Sent", item.Name, "→", receiverName)
+    else
+        WARN("❌ Send failed for", item.Name, "→", receiverName, "(tried formats)")
+    end
+
+    return sent
+end
+
 local function ToGift()
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
-    local Humanoid = character:FindFirstChildOfClass("Humanoid")
-    local totalSent = 0
-    local COOLDOWN = _G.CF.giftCooldown or 10
+    local COOLDOWN = tonumber(_G.CF.giftCooldown) or 3
 
     for _, receiverName in pairs(receivers) do
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
-            print("⚠️ Receiver", receiverName, "không online, bỏ qua.")
-            continue
+            WARN("Receiver not online:", receiverName)
+            -- still continue to next receiver
         end
 
-        for _, petName in pairs(_G.CF.ListPetGift) do
-            for _, item in pairs(Backpack:GetChildren()) do
-                if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) then
-                    pcall(function() Humanoid:EquipTool(item) end)
-                    task.wait(0.5)
-                    local petTool = character:FindFirstChildOfClass("Tool")
-
-                    if petTool then
-                        pcall(function()
-                            giftRemote:FireServer({Item = petTool, ToGift = receiverName})
-                        end)
-                        print("📤 ĐÃ GỬI:", petTool.Name, "cho", receiverName)
-                        totalSent += 1
-                        task.wait(COOLDOWN)
+        local itemsToSend = {}
+        for _, item in pairs(Backpack:GetChildren()) do
+            if item:IsA("Tool") then
+                -- support wildcard "*" meaning all pets
+                if _G.CF.ListPetGift[1] == "*" then
+                    table.insert(itemsToSend, item)
+                else
+                    for _, petName in pairs(_G.CF.ListPetGift) do
+                        if string.find(item.Name:lower(), petName:lower()) then
+                            table.insert(itemsToSend, item)
+                            break
+                        end
                     end
-                    break
                 end
             end
         end
+
+        for idx, item in ipairs(itemsToSend) do
+            spawn(function()
+                local ok = sendSingleGift(item, receiverName)
+                if ok then
+                    giftedCount[receiverName] = giftedCount[receiverName] or {}
+                    giftedCount[receiverName][item.Name] = (giftedCount[receiverName][item.Name] or 0) + 1
+                end
+            end)
+            -- wait a bit between starting each send to avoid instant spam
+            task.wait(0.2)
+        end
+
+        -- wait cooldown after handling a receiver
+        task.wait(COOLDOWN)
     end
-end
-
-local function SellMy()
-    pcall(function() ItemSell:FireServer() end)
-    print("💰 Đã gửi yêu cầu bán, chờ popup hiện...")
-
-    local popupGui = LocalPlayer.PlayerGui:WaitForChild("HUD"):WaitForChild("PopUp")
-    repeat task.wait(0.05) until popupGui.Visible or yesBtn.Visible
-    task.wait(0.2)
-
-    local yesBtn = popupGui.Content.Buttons.Yes.TextButton
-    print("🟢 Popup đã mở, bấm YES...")
-
-    for _, conn in pairs(getconnections(yesBtn.Activated)) do pcall(conn.Function) end
-    task.wait(0.05)
-    for _, conn in pairs(getconnections(yesBtn.MouseButton1Click)) do pcall(conn.Function) end
 end
 
 local function removeAllPetsFromPlots()
@@ -102,18 +200,21 @@ local function removeAllPetsFromPlots()
         local hitboxes = plot:FindFirstChild("Hitboxes")
         if hitboxes then
             for _, pet in pairs(hitboxes:GetChildren()) do
-                if pcall(function() removeRemote:FireServer(pet.Name) end) then
-                    count += 1
-                    task.wait(0.3)
-                end
+                task.wait(0.25) -- let game finish any animations
+                pcall(function()
+                    removeRemote:FireServer(pet.Name)
+                end)
+                count = count + 1
+                task.wait(0.2)
             end
         end
     end
-    print("🧹 Đã gỡ", count, "pet khỏi plot.")
+    LOG("Removed pets from plots:", count)
 end
 
 spawn(function()
-    SellMy()
+    -- initial tasks
+    -- you can call SellMy here if needed, left as before
     task.wait(3)
     removeAllPetsFromPlots()
     while task.wait(5) do
