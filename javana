@@ -201,14 +201,25 @@ local function SellMy()
 
     print("💰 Đã gửi yêu cầu bán, chờ popup hiện...")
 
-    local popupGui = LocalPlayer.PlayerGui:WaitForChild("HUD"):WaitForChild("PopUp")
-    local yesBtn = popupGui:WaitForChild("Content"):WaitForChild("Buttons"):WaitForChild("Yes"):WaitForChild("TextButton")
+    local popupGui = plr.PlayerGui:WaitForChild("HUD"):WaitForChild("PopUp")
+    local timeOut = 0
+    local yesBtn
 
     repeat
-        task.wait(0.5)
-    until popupGui.Visible or yesBtn.Visible
-    task.wait(0.2)
+        task.wait(0.1)
+        timeOut += 0.1
+        yesBtn = popupGui:FindFirstChild("Content") 
+            and popupGui.Content:FindFirstChild("Buttons")
+            and popupGui.Content.Buttons:FindFirstChild("Yes")
+            and popupGui.Content.Buttons.Yes:FindFirstChild("TextButton")
 
+        if timeOut > 2 then
+            print("⚪ Không thấy popup -> ItemSell không yêu cầu xác nhận.")
+            return
+        end
+    until popupGui.Visible and yesBtn and yesBtn.Visible
+
+    task.wait(0.2)
     print("🟢 Popup đã mở, bấm YES...")
 
     for _, conn in pairs(getconnections(yesBtn.Activated)) do
@@ -218,7 +229,6 @@ local function SellMy()
         pcall(conn.Function)
     end
 end
-
 
 local function removeAllPetsFromPlots()
     local count = 0
