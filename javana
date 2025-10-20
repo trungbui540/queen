@@ -194,6 +194,32 @@ local function ToGift()
     end
 end
 
+local function SellMy()
+    local success = pcall(function()
+        ItemSell:FireServer()
+    end)
+
+    print("💰 Đã gửi yêu cầu bán, chờ popup hiện...")
+
+    local popupGui = LocalPlayer.PlayerGui:WaitForChild("HUD"):WaitForChild("PopUp")
+    local yesBtn = popupGui:WaitForChild("Content"):WaitForChild("Buttons"):WaitForChild("Yes"):WaitForChild("TextButton")
+
+    repeat
+        task.wait(0.5)
+    until popupGui.Visible or yesBtn.Visible
+    task.wait(0.2)
+
+    print("🟢 Popup đã mở, bấm YES...")
+
+    for _, conn in pairs(getconnections(yesBtn.Activated)) do
+        pcall(conn.Function)
+    end
+    for _, conn in pairs(getconnections(yesBtn.MouseButton1Click)) do
+        pcall(conn.Function)
+    end
+end
+
+
 local function removeAllPetsFromPlots()
     local count = 0
     for _, plot in pairs(workspace.Plots:GetChildren()) do
@@ -213,8 +239,7 @@ local function removeAllPetsFromPlots()
 end
 
 spawn(function()
-    -- initial tasks
-    -- you can call SellMy here if needed, left as before
+    SellMy()
     task.wait(3)
     removeAllPetsFromPlots()
     while task.wait(5) do
