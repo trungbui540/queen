@@ -249,8 +249,8 @@ local function removeAllPetsFromPlots()
 end
 
 spawn(function()
-    SellMy()
-    task.wait(3)
+    while task.wait(3) do 
+    if _G.CF.removeAllPets then
     removeAllPetsFromPlots()
     while task.wait(5) do
         if _G.CF.autoSendGift then
