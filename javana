@@ -1,28 +1,28 @@
+if not game:IsLoaded() then game.Loaded:Wait() end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local plr = Players.LocalPlayer
+local LocalPlayer = plr
 local character = plr.Character or plr.CharacterAdded:Wait()
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
+local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
 local Backpack = plr:FindFirstChild("Backpack")
-local giftedCount = {}
-local giftQueue = {}
+local giftedCount, giftQueue = {}, {}
 
--- Update character khi respawn
 plr.CharacterAdded:Connect(function(newChar)
     character = newChar
     task.wait(1)
     Backpack = plr:FindFirstChild("Backpack")
 end)
 
--- Hook auto accept
 local function hookAllRemotes()
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
         if obj:IsA("RemoteEvent") and obj.OnClientEvent then
             obj.OnClientEvent:Connect(function(...)
-                local args = {...}
-                for _, arg in pairs(args) do
+                for _, arg in pairs({...}) do
                     if typeof(arg) == "table" and arg.ID and typeof(arg.ID) == "number" and arg.ID > 1000000000 then
                         table.insert(giftQueue, arg.ID)
                     end
@@ -32,10 +32,8 @@ local function hookAllRemotes()
     end
 end
 
-hookAllRemotes()
-
--- Auto accept loop
 spawn(function()
+    hookAllRemotes()
     while task.wait(1) do
         if _G.CF.acceptGifts and #giftQueue > 0 then
             local giftID = table.remove(giftQueue, 1)
@@ -52,100 +50,72 @@ local function ToGift()
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     local totalSent = 0
     local COOLDOWN = _G.CF.giftCooldown or 10
-    
+
     for _, receiverName in pairs(receivers) do
         local receiver = Players:FindFirstChild(receiverName)
+        if not receiver then
+            print("⚠️ Receiver", receiverName, "không online, bỏ qua.")
+            continue
+        end
+
         for _, petName in pairs(_G.CF.ListPetGift) do
-            local foundPet = false
-            
             for _, item in pairs(Backpack:GetChildren()) do
                 if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) then
-                    foundPet = true
-                    
-                    task.wait(0.3)
-                    
-                    -- Equip pet
-                    local equipSuccess = pcall(function()
-                        Humanoid:EquipTool(item)
-                    end)
+                    pcall(function() Humanoid:EquipTool(item) end)
                     task.wait(0.5)
-                    
-                    -- Tìm tool trong character 
                     local petTool = character:FindFirstChildOfClass("Tool")
-                    if petTool and string.find(petTool.Name:lower(), petName:lower()) then
-                        -- GỬI ĐÚNG FORMAT
-                        local args = {{Item = petTool, ToGift = receiverName}}
-                        local success, err = pcall(function()
-                            giftRemote:FireServer(unpack(args))
+
+                    if petTool then
+                        pcall(function()
+                            giftRemote:FireServer({Item = petTool, ToGift = receiverName})
                         end)
-                        
-                        if success then
-                            print("📤 ĐÃ GỬI:", petTool.Name, "cho", receiverName)
-                            totalSent = totalSent + 1
-                            
-                            if not giftedCount[receiverName] then
-                                giftedCount[receiverName] = {}
-                            end
-                            giftedCount[receiverName][petTool.Name] = (giftedCount[receiverName][petTool.Name] or 0) + 1
-                            task.wait(COOLDOWN)
-                        else
-                            warn("❌ LỖI KHI GỬI:", err)
-                        end
-                    else
-                        warn("⚠️ Pet không được equip vào character")
-                        if petTool then
-                            print("  - Tool hiện tại:", petTool.Name)
-                        else
-                            print("  - Không có tool nào trong character")
-                        end
+                        print("📤 ĐÃ GỬI:", petTool.Name, "cho", receiverName)
+                        totalSent += 1
+                        task.wait(COOLDOWN)
                     end
-                    
                     break
                 end
             end
-            
-            if not foundPet then
-                warn("⚠️ Không tìm thấy pet:", petName)
-            end
         end
     end
-    
-    print("✅ HOÀN TẤT! Đã gửi:", totalSent, "pet(s)")
 end
 
-local function isPetSender(playerName)
-    if _G.CF and _G.CF.Receivers then
-        local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
-        return not table.find(receivers, playerName)
-    else
-        return true
-    end
+local function SellMy()
+    pcall(function() ItemSell:FireServer() end)
+    print("💰 Đã gửi yêu cầu bán, chờ popup hiện...")
+
+    local popupGui = LocalPlayer.PlayerGui:WaitForChild("HUD"):WaitForChild("PopUp")
+    repeat task.wait(0.05) until popupGui.Visible or yesBtn.Visible
+    task.wait(0.2)
+
+    local yesBtn = popupGui.Content.Buttons.Yes.TextButton
+    print("🟢 Popup đã mở, bấm YES...")
+
+    for _, conn in pairs(getconnections(yesBtn.Activated)) do pcall(conn.Function) end
+    task.wait(0.05)
+    for _, conn in pairs(getconnections(yesBtn.MouseButton1Click)) do pcall(conn.Function) end
 end
 
 local function removeAllPetsFromPlots()
     local count = 0
-    
     for _, plot in pairs(workspace.Plots:GetChildren()) do
         local hitboxes = plot:FindFirstChild("Hitboxes")
-        
         if hitboxes then
             for _, pet in pairs(hitboxes:GetChildren()) do
-                local success, err = pcall(function()
-                    removeRemote:FireServer(pet.Name)
-                end)
-                if success then
-                    count = count + 1
+                if pcall(function() removeRemote:FireServer(pet.Name) end) then
+                    count += 1
                     task.wait(0.3)
                 end
             end
         end
     end
+    print("🧹 Đã gỡ", count, "pet khỏi plot.")
 end
 
-removeAllPetsFromPlots()
-
--- Auto send gift loop
 spawn(function()
+    SellMy()
+    task.wait(3)
+    removeAllPetsFromPlots()
     while task.wait(5) do
         if _G.CF.autoSendGift then
             ToGift()
