@@ -61,10 +61,31 @@ local function ToGift()
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     local totalSent = 0
     local COOLDOWN = _G.CF.giftCooldown or 3
+    
+    -- ✅ LẤY TÊN NGƯỜI CHƠI HIỆN TẠI
+    local myName = plr.Name
+    
+    print("👤 Người gửi:", myName)
+    print("👥 Danh sách người nhận:", table.concat(receivers, ", "))
 
     for _, receiverName in pairs(receivers) do
+        -- ✅ BỎ QUA NẾU NGƯỜI NHẬN LÀ CHÍNH MÌNH
+        if receiverName == myName then
+            print("⏭️ Bỏ qua:", receiverName, "(là chính mình)")
+            continue
+        end
+        
+        -- ✅ KIỂM TRA NGƯỜI NHẬN CÓ ONLINE KHÔNG
         local receiver = Players:FindFirstChild(receiverName)
+        
+        if not receiver then
+            warn("⚠️ Người nhận KHÔNG ONLINE:", receiverName)
+            continue
+        end
+        
+        print("✅ Tìm thấy người nhận:", receiverName)
 
+        -- GỬI TỪNG PET CHO NGƯỜI NÀY
         for _, petName in pairs(_G.CF.ListPetGift) do
             local foundPet = false
 
@@ -93,7 +114,7 @@ local function ToGift()
                         end)
 
                         if success then
-                            print("📤 ĐÃ GỬI:", petTool.Name, "cho", receiverName)
+                            print(("📤 ĐÃ GỬI: '%s' cho '%s'"):format(petTool.Name, receiverName))
                             totalSent = totalSent + 1
 
                             if not giftedCount[receiverName] then
@@ -103,7 +124,7 @@ local function ToGift()
 
                             task.wait(COOLDOWN)
                         else
-                            warn("❌ Lỗi khi gửi:", err)
+                            warn(("❌ Lỗi khi gửi cho '%s': %s"):format(receiverName, tostring(err)))
                         end
                     else
                         warn("❌ Không tìm thấy pet tool sau khi equip")
@@ -113,12 +134,25 @@ local function ToGift()
             end
 
             if not foundPet then
-                warn("⚠️ Không tìm thấy pet:", petName)
+                warn(("⚠️ Không tìm thấy pet '%s' trong backpack"):format(petName))
+            end
+        end
+        
+        print(("✅ Hoàn thành gửi quà cho '%s'"):format(receiverName))
+        task.wait(1)
+    end
+    
+    print(("📊 TỔNG KẾT: Đã gửi %d pets"):format(totalSent))
+    
+    -- In chi tiết
+    if totalSent > 0 then
+        for receiver, pets in pairs(giftedCount) do
+            print(("  👤 %s:"):format(receiver))
+            for petName, count in pairs(pets) do
+                print(("    - %s: %d con"):format(petName, count))
             end
         end
     end
-    
-    print("📊 Tổng số pet đã gửi:", totalSent)
 end
 
 local function SellMaxInventory()
