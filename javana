@@ -12,16 +12,14 @@ local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Acc
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
 local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
 
--- FIX: Đảm bảo Backpack được load
 local Backpack = plr:WaitForChild("Backpack", 10)
 local giftedCount = {}
 local giftQueue = {}
 
--- Update character khi respawn
 plr.CharacterAdded:Connect(function(newChar)
     character = newChar
     task.wait(1)
-    Backpack = plr:WaitForChild("Backpack", 10) -- FIX: Dùng WaitForChild
+    Backpack = plr:WaitForChild("Backpack", 10)
 end)
 
 -- Hook auto accept
@@ -75,7 +73,6 @@ local function ToGift()
                     foundPet = true
                     task.wait(0.3)
 
-                    -- Equip pet
                     local equipSuccess = pcall(function()
                         Humanoid:EquipTool(item)
                     end)
@@ -87,11 +84,9 @@ local function ToGift()
 
                     task.wait(0.5)
 
-                    -- Tìm tool trong character
                     local petTool = character:FindFirstChildOfClass("Tool")
                     
                     if petTool and string.find(petTool.Name:lower(), petName:lower()) then
-                        -- GỬI ĐÚNG FORMAT
                         local args = {{Item = petTool, ToGift = receiverName}}
                         local success, err = pcall(function()
                             giftRemote:FireServer(unpack(args))
@@ -127,13 +122,11 @@ local function ToGift()
 end
 
 local function SellMaxInventory()
-    -- FIX: KHÔNG khai báo local Backpack nữa, dùng biến global
     if not Backpack then
         warn("❌ Backpack không tồn tại")
         return false
     end
     
-    -- Lấy HUD và MaxInv
     local playerGui = plr:WaitForChild("PlayerGui", 5)
     if not playerGui then
         warn("❌ Không tìm thấy PlayerGui")
@@ -152,7 +145,6 @@ local function SellMaxInventory()
         return false
     end
     
-    -- Lấy giá trị max inventory
     local maxInventory = 250
     if maxInvObj:IsA("IntValue") or maxInvObj:IsA("NumberValue") then
         maxInventory = maxInvObj.Value
@@ -160,10 +152,8 @@ local function SellMaxInventory()
         maxInventory = tonumber(maxInvObj.Text) or 250
     end
     
-    -- Đếm items trong backpack
     local itemCount = #Backpack:GetChildren()
     
-    -- Kiểm tra inventory đã đầy chưa
     if itemCount < maxInventory then
         print(("📦 Inventory: %d/%d - Chưa đầy"):format(itemCount, maxInventory))
         return false
@@ -171,7 +161,6 @@ local function SellMaxInventory()
     
     print(("🔴 Inventory ĐẦY: %d/%d - BẮT ĐẦU BÁN!"):format(itemCount, maxInventory))
     
-    -- Gửi request bán
     local success, err = pcall(function()
         ItemSell:FireServer()
     end)
@@ -185,7 +174,6 @@ local function SellMaxInventory()
     
     task.wait(0.5)
     
-    -- Lấy popup GUI
     local popupGui = hud:WaitForChild("PopUp", 10)
     if not popupGui then
         warn("❌ Không tìm thấy PopUp")
@@ -216,7 +204,6 @@ local function SellMaxInventory()
         return false
     end
     
-    -- Đợi popup hiện
     local timeout = 0
     local maxTimeout = 10
     
@@ -260,7 +247,7 @@ local function removeAllPetsFromPlots()
     
     if not plots then
         warn("❌ Không tìm thấy Plots trong Workspace")
-        return
+        return 0
     end
     
     for _, plot in pairs(plots:GetChildren()) do
@@ -282,36 +269,73 @@ local function removeAllPetsFromPlots()
     end
     
     print("🗑️ Đã xóa", count, "pets khỏi plots")
+    return count
+end
+
+-- 🎯 HÀM QUẢN LÝ INVENTORY
+local function CheckAndManageInventory()
+    if not Backpack then
+        warn("❌ Backpack không tồn tại")
+        return
+    end
+    
+    local playerGui = plr:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+    
+    local hud = playerGui:FindFirstChild("HUD")
+    if not hud then return end
+    
+    local maxInvObj = hud:FindFirstChild("MaxInv")
+    if not maxInvObj then return end
+    
+    local maxInventory = 250
+    if maxInvObj:IsA("IntValue") or maxInvObj:IsA("NumberValue") then
+        maxInventory = maxInvObj.Value
+    elseif maxInvObj:IsA("TextLabel") or maxInvObj:IsA("TextBox") then
+        maxInventory = tonumber(maxInvObj.Text) or 250
+    end
+    
+    local itemCount = #Backpack:GetChildren()
+    
+    print(("📊 Inventory: %d/%d"):format(itemCount, maxInventory))
+    
+    -- ✅ LOGIC MỚI: LUÔN XÓA PETS, NHƯNG BÁN NẾU ĐẦY
+    if itemCount >= maxInventory then
+        print("🔴 Inventory ĐẦY!")
+        print("  → Bước 1: Bán items...")
+        local sellSuccess = pcall(SellMaxInventory)
+        if sellSuccess then
+            task.wait(3)
+        end
+        print("  → Bước 2: Xóa pets khỏi plots...")
+        pcall(removeAllPetsFromPlots)
+    else
+        print("🟢 Inventory chưa đầy")
+        print("  → Xóa pets khỏi plots để tiếp tục farm...")
+        pcall(removeAllPetsFromPlots)
+    end
 end
 
 -- Main loop
 spawn(function()
-    task.wait(0.5) -- Đợi game load xong
-    print("🔄 Bắt đầu quy trình...")
-    
-    -- Bán items
-    local sellSuccess = pcall(SellMaxInventory)
-    if not sellSuccess then
-        warn("⚠️ Có lỗi khi bán items")
-    end
     task.wait(2)
+    print("🔄 Script started!")
+    print("=" .. string.rep("=", 50))
     
-    -- Xóa pets khỏi plots
-    local removeSuccess = pcall(removeAllPetsFromPlots)
-    if not removeSuccess then
-        warn("⚠️ Có lỗi khi xóa pets")
-    end
-    task.wait(2)
-    
-    -- Main gift loop
-    while task.wait(5) do
+    while true do
+        -- 1. Quản lý inventory (bán nếu đầy + xóa pets)
+        print("\n🔍 Kiểm tra inventory...")
+        pcall(CheckAndManageInventory)
+        task.wait(3)
+        
+        -- 2. Gửi quà (nếu bật)
         if _G.CF.autoSendGift then
-            print("🎁 Bắt đầu gửi quà...")
-            local giftSuccess = pcall(ToGift)
-            if not giftSuccess then
-                warn("⚠️ Có lỗi trong quá trình gửi quà")
-            end
+            print("\n🎁 Bắt đầu gửi quà...")
+            pcall(ToGift)
         end
+        
+        print("\n⏳ Đợi 5 giây trước khi lặp lại...")
+        print("=" .. string.rep("=", 50))
+        task.wait(5)
     end
-end)
 end)
