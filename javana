@@ -336,7 +336,7 @@ local function CheckAndManageInventory()
         pcall(removeAllPetsFromPlots)
     else
         print("🟢 Inventory chưa đầy")
-        print("  → Xóa pets khỏi plots để tiếp tục farm...")
+        print("  → Xóa pets khỏi plots để tiếp tục...")
         pcall(removeAllPetsFromPlots)
     end
 end
