@@ -235,32 +235,69 @@ local function removeAllPetsFromPlots()
     local count = 0
     local workspace = game:GetService("Workspace")
     local plots = workspace:FindFirstChild("Plots")
+    local listPlants = _G.CF.ListPetGift -- Danh sách cây cần xóa
     
     if not plots then
         warn("❌ Không tìm thấy Plots trong Workspace")
-        return 0
+        return
+    end
+    
+    -- Hàm kiểm tra xem plant có trong danh sách không
+    local function isInList(plantName)
+        for _, name in pairs(listPlants) do
+            if string.lower(plantName):find(string.lower(name)) then
+                return true
+            end
+        end
+        return false
+    end
+    
+    -- Hàm lấy UUID từ attributes
+    local function getUUID(plant)
+        local uuid = plant:GetAttribute("UUID")
+        if uuid then
+            return uuid
+        end
+        
+        -- Tìm UUID trong tất cả attributes
+        for attrName, attrValue in pairs(plant:GetAttributes()) do
+            if type(attrValue) == "string" and attrValue:match("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
+                return attrValue
+            end
+        end
+        
+        return nil
     end
     
     for _, plot in pairs(plots:GetChildren()) do
-        local hitboxes = plot:FindFirstChild("Hitboxes")
-        if hitboxes then
-            for _, pet in pairs(hitboxes:GetChildren()) do
-                local success, err = pcall(function()
-                    removeRemote:FireServer(pet.Name)
-                end)
-                
-                if success then
-                    count = count + 1
-                    task.wait(0.3)
-                else
-                    warn("❌ Lỗi khi xóa pet:", pet.Name, err)
+        local plants = plot:FindFirstChild("Plants")
+        if plants then
+            for _, plant in pairs(plants:GetChildren()) do
+                -- Kiểm tra xem plant có trong danh sách cần xóa không
+                if isInList(plant.Name) then
+                    local uuid = getUUID(plant)
+                    
+                    if uuid then
+                        local success, err = pcall(function()
+                            removeRemote:FireServer(uuid)
+                        end)
+                        
+                        if success then
+                            count = count + 1
+                            print("✅ Đã xóa:", plant.Name, "- UUID:", uuid)
+                            task.wait(0.3)
+                        else
+                            warn("❌ Lỗi khi xóa plant:", plant.Name, "UUID:", uuid, err)
+                        end
+                    else
+                        warn("⚠️ Không tìm thấy UUID cho:", plant.Name)
+                    end
                 end
             end
         end
     end
     
-    print("🗑️ Đã xóa", count, "pets khỏi plots")
-    return count
+    print("🗑️ Tổng cộng đã xóa", count, "plants khỏi plots")
 end
 
 -- 🎯 HÀM QUẢN LÝ INVENTORY
