@@ -144,29 +144,17 @@ local function ToGift()
 end
 
 local function SellMaxInventory()
-    if not Backpack then
-        warn("❌ Backpack không tồn tại")
-        return false
-    end
+    -- FIX: Lấy Backpack đúng cách
+    local Backpack = plr:WaitForChild("Backpack", 5) 
     
+    -- Lấy HUD và MaxInv
     local playerGui = plr:WaitForChild("PlayerGui", 5)
-    if not playerGui then
-        warn("❌ Không tìm thấy PlayerGui")
-        return false
-    end
     
     local hud = playerGui:WaitForChild("HUD", 5)
-    if not hud then
-        warn("❌ Không tìm thấy HUD")
-        return false
-    end
     
     local maxInvObj = hud:WaitForChild("MaxInv", 5)
-    if not maxInvObj then
-        warn("❌ Không tìm thấy MaxInv")
-        return false
-    end
     
+    -- Lấy giá trị max inventory
     local maxInventory = 250
     if maxInvObj:IsA("IntValue") or maxInvObj:IsA("NumberValue") then
         maxInventory = maxInvObj.Value
@@ -174,8 +162,10 @@ local function SellMaxInventory()
         maxInventory = tonumber(maxInvObj.Text) or 250
     end
     
+    -- Đếm items trong backpack
     local itemCount = #Backpack:GetChildren()
     
+    -- Kiểm tra inventory đã đầy chưa
     if itemCount < maxInventory then
         print(("📦 Inventory: %d/%d - Chưa đầy"):format(itemCount, maxInventory))
         return false
@@ -183,6 +173,7 @@ local function SellMaxInventory()
     
     print(("🔴 Inventory ĐẦY: %d/%d - BẮT ĐẦU BÁN!"):format(itemCount, maxInventory))
     
+    -- Gửi request bán
     local success, err = pcall(function()
         ItemSell:FireServer()
     end)
@@ -196,36 +187,14 @@ local function SellMaxInventory()
     
     task.wait(0.5)
     
+    -- Lấy popup GUI
     local popupGui = hud:WaitForChild("PopUp", 10)
-    if not popupGui then
-        warn("❌ Không tìm thấy PopUp")
-        return false
-    end
-    
     local content = popupGui:WaitForChild("Content", 5)
-    if not content then
-        warn("❌ Không tìm thấy Content")
-        return false
-    end
-    
     local buttons = content:WaitForChild("Buttons", 5)
-    if not buttons then
-        warn("❌ Không tìm thấy Buttons")
-        return false
-    end
-    
     local yes = buttons:WaitForChild("Yes", 5)
-    if not yes then
-        warn("❌ Không tìm thấy Yes")
-        return false
-    end
-    
     local yesBtn = yes:WaitForChild("TextButton", 5)
-    if not yesBtn then
-        warn("❌ Không tìm thấy TextButton")
-        return false
-    end
     
+    -- Đợi popup hiện
     local timeout = 0
     local maxTimeout = 10
     
@@ -358,6 +327,6 @@ spawn(function()
         
         print("\n⏳ Đợi 5 giây trước khi lặp lại...")
         print("=" .. string.rep("=", 50))
-        task.wait(5)
+        task.wait(2)
     end
 end)
