@@ -288,9 +288,6 @@ local function CheckAndManageInventory()
     
     local itemCount = #Backpack:GetChildren()
     
-    print(("📊 Inventory: %d/%d"):format(itemCount, maxInventory))
-    
-    -- ✅ LOGIC MỚI: LUÔN XÓA PETS, NHƯNG BÁN NẾU ĐẦY
     if itemCount >= maxInventory then
         print("🔴 Inventory ĐẦY!")
         print("  → Bước 1: Bán items...")
