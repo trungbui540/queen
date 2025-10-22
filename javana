@@ -306,7 +306,7 @@ end
 
 -- Main loop
 spawn(function()
-    task.wait(2)
+    task.wait(1)
     print("🔄 Script started!")
     print("=" .. string.rep("=", 50))
     
@@ -314,7 +314,7 @@ spawn(function()
         -- 1. Quản lý inventory (bán nếu đầy + xóa pets)
         print("\n🔍 Kiểm tra inventory...")
         pcall(CheckAndManageInventory)
-        task.wait(3)
+        task.wait(2)
         
         -- 2. Gửi quà (nếu bật)
         if _G.CF.autoSendGift then
@@ -324,6 +324,6 @@ spawn(function()
         
         print("\n⏳ Đợi 5 giây trước khi lặp lại...")
         print("=" .. string.rep("=", 50))
-        task.wait(2)
+        task.wait(3)
     end
 end)
