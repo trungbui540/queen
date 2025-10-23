@@ -1,28 +1,31 @@
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
+if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local plr = Players.LocalPlayer
-local character = plr.Character or plr.CharacterAdded:Wait()
+local LocalPlayer = Players.LocalPlayer
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
+-- Remotes
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
 local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
+local FavoriteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FavoriteItem") -- ✅ Fix missing
 
-local Backpack = plr:WaitForChild("Backpack", 10)
-local giftedCount = {}
+local Backpack = LocalPlayer:WaitForChild("Backpack", 10)
 local giftQueue = {}
 
-plr.CharacterAdded:Connect(function(newChar)
+-- Update character reference
+LocalPlayer.CharacterAdded:Connect(function(newChar)
     character = newChar
     task.wait(1)
-    Backpack = plr:WaitForChild("Backpack", 10)
+    Backpack = LocalPlayer:WaitForChild("Backpack", 10)
 end)
 
--- Hook auto accept
+-- ═══════════════════════════════════════════════════════════
+-- 📥 AUTO ACCEPT GIFTS
+-- ═══════════════════════════════════════════════════════════
+
 local function hookAllRemotes()
     for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
         if obj:IsA("RemoteEvent") and obj.OnClientEvent then
@@ -38,7 +41,6 @@ local function hookAllRemotes()
     end
 end
 
--- Auto accept loop
 spawn(function()
     hookAllRemotes()
     while task.wait(1) do
@@ -50,39 +52,44 @@ spawn(function()
             if success then
                 print("✅ Accepted gift:", giftID)
             else
-                warn("❌ Failed to accept gift:", err)
+                warn("❌ Failed to accept:", err)
             end
         end
     end
 end)
 
+-- ═══════════════════════════════════════════════════════════
+-- 🎁 SEND GIFTS
+-- ═══════════════════════════════════════════════════════════
+
 local function ToGift()
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then 
+        warn("❌ Không tìm thấy Humanoid")
+        return 
+    end
+    
+    local myName = LocalPlayer.Name
     local totalSent = 0
-    local COOLDOWN = _G.CF.giftCooldown or 3
     
-    -- ✅ LẤY TÊN NGƯỜI CHƠI HIỆN TẠI
-    local myName = plr.Name
-    
+    print("\n🎁 BẮT ĐẦU GỬI QUÀ")
     print("👤 Người gửi:", myName)
-    print("👥 Danh sách receivers:", table.concat(receivers, ", "))
 
     for _, receiverName in pairs(receivers) do
-        -- ✅ BỎ QUA NẾU NGƯỜI NHẬN LÀ CHÍNH MÌNH
+        -- Skip nếu là chính mình
         if receiverName == myName then
             print("⏭️ Bỏ qua:", receiverName, "(là chính mình)")
             continue
         end
         
         local receiver = Players:FindFirstChild(receiverName)
-        
         if not receiver then
-            warn("⚠️ Người nhận KHÔNG ONLINE:", receiverName)
+            warn("⚠️ Người nhận OFFLINE:", receiverName)
             continue
         end
         
-        print("✅ Tìm thấy người nhận:", receiverName)
+        print("\n✅ Tìm thấy:", receiverName)
 
         for _, petName in pairs(_G.CF.ListPetGift) do
             local foundPet = false
@@ -92,69 +99,59 @@ local function ToGift()
                     foundPet = true
                     task.wait(0.3)
 
-                    local equipSuccess = pcall(function()
+                    local success = pcall(function()
                         Humanoid:EquipTool(item)
                     end)
 
-                    if not equipSuccess then
-                        warn("❌ Không thể equip:", item.Name)
+                    if not success then
+                        warn("❌ Không equip được:", item.Name)
                         break
                     end
 
                     task.wait(0.5)
-
                     local petTool = character:FindFirstChildOfClass("Tool")
                     
                     if petTool and string.find(petTool.Name:lower(), petName:lower()) then
                         local args = {{Item = petTool, ToGift = receiverName}}
-                        local success, err = pcall(function()
+                        local sendSuccess, err = pcall(function()
                             giftRemote:FireServer(unpack(args))
                         end)
 
-                        if success then
-                            print(("📤 ĐÃ GỬI: '%s' cho '%s'"):format(petTool.Name, receiverName))
+                        if sendSuccess then
+                            print(("📤 ĐÃ GỬI: '%s' → '%s'"):format(petTool.Name, receiverName))
                             totalSent = totalSent + 1
-
-                            if not giftedCount[receiverName] then
-                                giftedCount[receiverName] = {}
-                            end
-                            giftedCount[receiverName][petTool.Name] = (giftedCount[receiverName][petTool.Name] or 0) + 1
-
-                            task.wait(COOLDOWN)
+                            task.wait(_G.CF.giftCooldown)
                         else
-                            warn(("❌ Lỗi khi gửi cho '%s': %s"):format(receiverName, tostring(err)))
+                            warn(("❌ Lỗi gửi: %s"):format(tostring(err)))
                         end
-                    else
-                        warn("❌ Không tìm thấy pet tool sau khi equip")
                     end
                     break
                 end
             end
 
             if not foundPet then
-                warn(("⚠️ Không tìm thấy pet '%s'"):format(petName))
+                warn(("⚠️ Không tìm thấy: '%s'"):format(petName))
             end
         end
-        
-        print(("✅ Hoàn thành gửi cho '%s'"):format(receiverName))
-        task.wait(1)
     end
     
-    print(("📊 TỔNG: Đã gửi %d pets"):format(totalSent))
+    print(("\n📊 TỔNG: Đã gửi %d pets\n"):format(totalSent))
 end
 
+-- ═══════════════════════════════════════════════════════════
+-- 💰 SELL MAX INVENTORY
+-- ═══════════════════════════════════════════════════════════
+
 local function SellMaxInventory()
-    -- FIX: Lấy Backpack đúng cách
-    local Backpack = plr:WaitForChild("Backpack", 5) 
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return false end
     
-    -- Lấy HUD và MaxInv
-    local playerGui = plr:WaitForChild("PlayerGui", 5)
+    local hud = playerGui:FindFirstChild("HUD")
+    if not hud then return false end
     
-    local hud = playerGui:WaitForChild("HUD", 5)
+    local maxInvObj = hud:FindFirstChild("MaxInv")
+    if not maxInvObj then return false end
     
-    local maxInvObj = hud:WaitForChild("MaxInv", 5)
-    
-    -- Lấy giá trị max inventory
     local maxInventory = 250
     if maxInvObj:IsA("IntValue") or maxInvObj:IsA("NumberValue") then
         maxInventory = maxInvObj.Value
@@ -162,56 +159,55 @@ local function SellMaxInventory()
         maxInventory = tonumber(maxInvObj.Text) or 250
     end
     
-    -- Đếm items trong backpack
     local itemCount = #Backpack:GetChildren()
     
-    -- Kiểm tra inventory đã đầy chưa
     if itemCount < maxInventory then
         print(("📦 Inventory: %d/%d - Chưa đầy"):format(itemCount, maxInventory))
         return false
     end
     
-    print(("🔴 Inventory ĐẦY: %d/%d - BẮT ĐẦU BÁN!"):format(itemCount, maxInventory))
+    print(("🔴 ĐẦY: %d/%d - BẮT ĐẦU BÁN!"):format(itemCount, maxInventory))
     
-    -- Gửi request bán
-    local success, err = pcall(function()
+    local success = pcall(function()
         ItemSell:FireServer()
     end)
     
     if not success then
-        warn("❌ Lỗi khi gửi yêu cầu bán: " .. tostring(err))
+        warn("❌ Lỗi gửi yêu cầu bán")
         return false
     end
     
-    print("💰 Đã gửi yêu cầu bán, chờ popup hiện...")
-    
     task.wait(0.5)
     
-    -- Lấy popup GUI
-    local popupGui = hud:WaitForChild("PopUp", 10)
-    local content = popupGui:WaitForChild("Content", 5)
-    local buttons = content:WaitForChild("Buttons", 5)
-    local yes = buttons:WaitForChild("Yes", 5)
-    local yesBtn = yes:WaitForChild("TextButton", 5)
+    local popupGui = hud:FindFirstChild("PopUp")
+    if not popupGui then return false end
+    
+    local content = popupGui:FindFirstChild("Content")
+    if not content then return false end
+    
+    local buttons = content:FindFirstChild("Buttons")
+    if not buttons then return false end
+    
+    local yes = buttons:FindFirstChild("Yes")
+    if not yes then return false end
+    
+    local yesBtn = yes:FindFirstChild("TextButton")
+    if not yesBtn then return false end
     
     -- Đợi popup hiện
     local timeout = 0
-    local maxTimeout = 10
+    while not popupGui.Visible and timeout < 10 do
+        task.wait(0.1)
+        timeout = timeout + 0.1
+    end
     
     if not popupGui.Visible then
-        print("⏳ Đang chờ popup hiện...")
-        repeat
-            task.wait(0.1)
-            timeout = timeout + 0.1
-            if timeout > maxTimeout then
-                warn("⏱️ Timeout: Popup không hiện sau " .. maxTimeout .. " giây")
-                return false
-            end
-        until popupGui.Visible
+        warn("⏱️ Popup không hiện")
+        return false
     end
     
     task.wait(0.2)
-    print("🟢 Popup đã mở, bấm YES...")
+    print("🟢 Bấm YES...")
 
     pcall(function()
         for _, conn in pairs(getconnections(yesBtn.Activated)) do
@@ -225,89 +221,195 @@ local function SellMaxInventory()
         end
     end)
     
-    print("✅ Đã bấm YES - Bán xong!")
+    print("✅ Đã bán!")
     task.wait(0.5)
-    
     return true
 end
 
+-- ═══════════════════════════════════════════════════════════
+-- 🗑️ REMOVE PETS FROM PLOTS
+-- ═══════════════════════════════════════════════════════════
+
+local function getUUID(obj)
+    local uuid = obj:GetAttribute("UUID")
+    if uuid then return uuid end
+    
+    for _, v in pairs(obj:GetAttributes()) do
+        if type(v) == "string" and v:match("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
+            return v
+        end
+    end
+end
+
+local function isInList(name, list)
+    for _, item in pairs(list) do
+        if name:lower():find(item:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
 local function removeAllPetsFromPlots()
-    local count = 0
     local workspace = game:GetService("Workspace")
     local plots = workspace:FindFirstChild("Plots")
-    local listPlants = _G.CF.ListPetGift -- Danh sách cây cần xóa
     
     if not plots then
-        warn("❌ Không tìm thấy Plots trong Workspace")
+        warn("❌ Không tìm thấy Plots")
         return
     end
     
-    -- Hàm kiểm tra xem plant có trong danh sách không
-    local function isInList(plantName)
-        for _, name in pairs(listPlants) do
-            if string.lower(plantName):find(string.lower(name)) then
-                return true
-            end
-        end
-        return false
-    end
-    
-    -- Hàm lấy UUID từ attributes
-    local function getUUID(plant)
-        local uuid = plant:GetAttribute("UUID")
-        if uuid then
-            return uuid
-        end
-        
-        -- Tìm UUID trong tất cả attributes
-        for attrName, attrValue in pairs(plant:GetAttributes()) do
-            if type(attrValue) == "string" and attrValue:match("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
-                return attrValue
-            end
-        end
-        
-        return nil
-    end
+    local count = 0
     
     for _, plot in pairs(plots:GetChildren()) do
         local plants = plot:FindFirstChild("Plants")
         if plants then
             for _, plant in pairs(plants:GetChildren()) do
-                -- Kiểm tra xem plant có trong danh sách cần xóa không
-                if isInList(plant.Name) then
+                if isInList(plant.Name, _G.CF.ListPetGift) then
                     local uuid = getUUID(plant)
                     
                     if uuid then
-                        local success, err = pcall(function()
+                        local success = pcall(function()
                             removeRemote:FireServer(uuid)
                         end)
                         
                         if success then
                             count = count + 1
-                            print("✅ Đã xóa:", plant.Name, "- UUID:", uuid)
+                            print("✅ Đã xóa:", plant.Name)
                             task.wait(0.3)
                         else
-                            warn("❌ Lỗi khi xóa plant:", plant.Name, "UUID:", uuid, err)
+                            warn("❌ Lỗi xóa:", plant.Name)
                         end
-                    else
-                        warn("⚠️ Không tìm thấy UUID cho:", plant.Name)
                     end
                 end
             end
         end
     end
     
-    print("🗑️ Tổng cộng đã xóa", count, "plants khỏi plots")
+    print(("🗑️ Đã xóa %d pets khỏi plots"):format(count))
 end
 
--- 🎯 HÀM QUẢN LÝ INVENTORY
+-- ═══════════════════════════════════════════════════════════
+-- ⭐ AUTO FAVORITE PETS
+-- ═══════════════════════════════════════════════════════════
+
+local function isFavorited(slot)
+    local heart = slot:FindFirstChild("HeartIcon")
+    return heart and heart.Visible
+end
+
+local function getPetName(slot)
+    local name = slot:GetAttribute("PetName")
+    if name then return name end
+    
+    for _, child in ipairs(slot:GetDescendants()) do
+        if child:IsA("TextLabel") and child.Text ~= "" and not tonumber(child.Text) then
+            return child.Text
+        end
+    end
+end
+
+local function tryFavorite(slot, idx, location)
+    local petName = getPetName(slot)
+    if not petName or not isInList(petName, _G.CF.ListPetGift) then 
+        return false 
+    end
+    
+    if isFavorited(slot) then
+        return true
+    end
+
+    local uuid = getUUID(slot)
+    
+    -- Nếu không tìm thấy UUID trong slot, tìm trong Backpack
+    if not uuid then
+        for _, item in ipairs(Backpack:GetChildren()) do
+            if item.Name:lower():find(petName:lower()) then
+                uuid = getUUID(item)
+                if uuid then break end
+            end
+        end
+    end
+
+    if uuid then
+        print(("⭐ [%s] Favorite: %s (Slot %d)"):format(location, petName, idx))
+        FavoriteRemote:FireServer(uuid)
+        task.wait(0.3)
+        return true
+    else
+        warn(("❌ [%s] Không tìm thấy UUID: %s"):format(location, petName))
+    end
+    return false
+end
+
+local function scanAndFavoritePets()
+    local backpackGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not backpackGui then 
+        warn("❌ Không tìm thấy PlayerGui")
+        return 
+    end
+    
+    backpackGui = backpackGui:FindFirstChild("BackpackGui")
+    if not backpackGui then 
+        warn("❌ Không tìm thấy BackpackGui")
+        return 
+    end
+    
+    local containers = {
+        {
+            path = {"Backpack","Inventory","ScrollingFrame","UIGridFrame"}, 
+            range = 250, 
+            name = "Inventory"
+        },
+        {
+            path = {"Backpack","Hotbar"}, 
+            range = 10, 
+            name = "Hotbar"
+        },
+    }
+
+    for _, cfg in ipairs(containers) do
+        local gui = backpackGui
+        
+        for _, name in ipairs(cfg.path) do
+            if gui then 
+                gui = gui:FindFirstChild(name) 
+            else
+                break
+            end
+        end
+        
+        if not gui then
+            warn("❌ Không tìm thấy:", cfg.name)
+        else
+            print(("🔍 Quét %s..."):format(cfg.name))
+            local count = 0
+            
+            for i = 1, cfg.range do
+                local slot = gui:FindFirstChild(tostring(i))
+                if slot and tryFavorite(slot, i, cfg.name) then
+                    count = count + 1
+                end
+            end
+            
+            if count > 0 then
+                print(("  ✅ %s: %d pets favorite"):format(cfg.name, count))
+            end
+        end
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- 🎯 MANAGE INVENTORY
+-- ═══════════════════════════════════════════════════════════
+
 local function CheckAndManageInventory()
     if not Backpack then
         warn("❌ Backpack không tồn tại")
         return
     end
     
-    local playerGui = plr:FindFirstChild("PlayerGui")
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if not playerGui then return end
     
     local hud = playerGui:FindFirstChild("HUD")
@@ -328,39 +430,49 @@ local function CheckAndManageInventory()
     if itemCount >= maxInventory then
         print("🔴 Inventory ĐẦY!")
         print("  → Bước 1: Bán items...")
-        local sellSuccess = pcall(SellMaxInventory)
-        if sellSuccess then
-            task.wait(3)
-        end
+        pcall(SellMaxInventory)
+        task.wait(3)
         print("  → Bước 2: Xóa pets khỏi plots...")
         pcall(removeAllPetsFromPlots)
     else
-        print("🟢 Inventory chưa đầy")
-        print("  → Xóa pets khỏi plots để tiếp tục...")
+        print("🟢 Inventory OK, xóa pets khỏi plots...")
         pcall(removeAllPetsFromPlots)
     end
 end
 
--- Main loop
+-- ═══════════════════════════════════════════════════════════
+-- 🚀 MAIN LOOP
+-- ═══════════════════════════════════════════════════════════
+
 spawn(function()
-    task.wait(1)
-    print("🔄 Script started!")
-    print("=" .. string.rep("=", 50))
+    task.wait(2)
+    print("\n" .. string.rep("=", 60))
+    print("🚀 SCRIPT STARTED!")
+    print(string.rep("=", 60))
     
     while true do
-        -- 1. Quản lý inventory (bán nếu đầy + xóa pets)
+        -- 1. Quản lý inventory
         print("\n🔍 Kiểm tra inventory...")
         pcall(CheckAndManageInventory)
         task.wait(2)
         
-        -- 2. Gửi quà (nếu bật)
+        -- 2. Auto favorite (nếu bật)
+        if _G.CF.autoFavorite then
+            print("\n⭐ Quét và favorite pets...")
+            pcall(scanAndFavoritePets)
+            task.wait(1)
+        end
+        
+        -- 3. Gửi quà (nếu bật)
         if _G.CF.autoSendGift then
-            print("\n🎁 Bắt đầu gửi quà...")
+            print("\n🎁 Gửi quà...")
             pcall(ToGift)
         end
         
-        print("\n⏳ Đợi 5 giây trước khi lặp lại...")
-        print("=" .. string.rep("=", 50))
-        task.wait(3)
+        print("\n⏳ Đợi 5 giây...")
+        print(string.rep("=", 60))
+        task.wait(5)
     end
 end)
+
+print("✅ Script loaded! Auto loops started.")
