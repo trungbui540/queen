@@ -37,7 +37,7 @@ local function tween(targetPos, Speed)
     local distance = (targetPos - root.Position).Magnitude
     local duration = distance / Speed 
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-    local goal = {CFrame = CFrame.new(Vector3.new(1, 40, 0) + targetPos)}
+    local goal = {CFrame = CFrame.new(Vector3.new(1, 20, 0) + targetPos)}
 
     local tween = TweenService:Create(root, tweenInfo, goal)
     tween:Play()
@@ -226,4 +226,137 @@ spawn(function()
     teleandrop()
     task.wait(0.5)
 end)
+
+local function getFruitList()
+    local fruits = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+            table.insert(fruits, v.Name)
+        end
+    end
+    return fruits
+end
+
+
+local playerGui = player:WaitForChild("PlayerGui")
+
+if playerGui:FindFirstChild("FruitCounterUI") then
+    playerGui.FruitCounterUI:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FruitCounterUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- 🧱 Khung chính căn giữa màn hình
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 280, 0, 260)
+frame.Position = UDim2.new(0.5, -140, 0.5, -130) -- căn giữa
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+-- 🔘 Tiêu đề
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.Text = "🍇 Fruits in Server"
+title.Parent = frame
+
+-- 🔍 Nút bật/tắt ô tìm kiếm
+local searchButton = Instance.new("TextButton")
+searchButton.Size = UDim2.new(0, 120, 0, 25)
+searchButton.Position = UDim2.new(0.5, -60, 0, 35)
+searchButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+searchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchButton.Font = Enum.Font.Gotham
+searchButton.TextScaled = true
+searchButton.Text = "🔍 Search Fruit"
+searchButton.BorderSizePixel = 0
+searchButton.Parent = frame
+
+-- 🔲 Ô tìm kiếm (ẩn mặc định)
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(1, -10, 0, 25)
+searchBox.Position = UDim2.new(0, 5, 0, 65)
+searchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchBox.PlaceholderText = "Enter fruit name..."
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextScaled = true
+searchBox.BorderSizePixel = 0
+searchBox.ClearTextOnFocus = false
+searchBox.Visible = false
+searchBox.Parent = frame
+
+-- 📜 Danh sách trái
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, 0, 1, -100)
+scroll.Position = UDim2.new(0, 0, 0, 95)
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.ScrollBarThickness = 6
+scroll.BackgroundTransparency = 1
+scroll.Parent = frame
+
+local function createLabel(name)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 22)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextScaled = true
+    lbl.Text = name
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    return lbl
+end
+
+-- 🔄 Cập nhật danh sách trái
+local function updateFruitList()
+    for _, c in pairs(scroll:GetChildren()) do
+        if c:IsA("TextLabel") then c:Destroy() end
+    end
+
+    local fruits = getFruitList()
+    local keyword = string.lower(searchBox.Text)
+    local filtered = {}
+
+    for _, name in ipairs(fruits) do
+        if keyword == "" or string.find(string.lower(name), keyword) then
+            table.insert(filtered, name)
+        end
+    end
+
+    title.Text = "🍇 Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
+
+    local y = 0
+    for _, name in ipairs(filtered) do
+        local lbl = createLabel("• " .. name)
+        lbl.Position = UDim2.new(0, 5, 0, y)
+        lbl.Parent = scroll
+        y = y + 24
+    end
+    scroll.CanvasSize = UDim2.new(0, 0, 0, y)
+end
+
+-- 🕒 Cập nhật mỗi 3 giây
+task.spawn(function()
+    while task.wait(3) do
+        updateFruitList()
+    end
+end)
+
+-- 🧠 Sự kiện nút
+searchButton.MouseButton1Click:Connect(function()
+    searchBox.Visible = not searchBox.Visible
+end)
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(updateFruitList)
+
+updateFruitList()
+
 
