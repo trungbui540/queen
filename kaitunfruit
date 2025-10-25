@@ -165,12 +165,32 @@ local function teleandrop()
 	local fruitName = GetCurrentFruitName()
 
 	if fruitName then
-		local pos = fruitPoints[fruitName] or fruitPoints["fruit pulp"]
-		print("🗺️ Bay tới:", fruitName, pos)
+		-- Xử lý tên: bỏ chữ "Fruit", trim khoảng trắng, viết thường hết
+		local cleanName = fruitName:gsub("Fruit", ""):gsub("%s+", ""):lower()
+
+		local pos = nil
+		for name, point in pairs(fruitPoints) do
+			if name:lower():gsub("%s+", "") == cleanName then
+				pos = point
+				print("✅ Khớp tên drop:", name, "→", fruitName)
+				break
+			end
+		end
+
+		if not pos then
+			print("⚠️ Không tìm được vị trí cho", fruitName, "→ dùng 'fruit pulp'")
+			pos = fruitPoints["fruit pulp"]
+		end
+
+		print(string.format("🗺️ Bay tới vị trí: %s (%.2f, %.2f, %.2f)", fruitName, pos.X, pos.Y, pos.Z))
+
 		local tw = tween(pos, 200)
 		if tw then
 			tw.Completed:Wait()
-        end
+		else
+			task.wait(3)
+		end
+
 		task.wait(1)
 		for i = 1, 3 do
 			DropFruit()
@@ -178,17 +198,16 @@ local function teleandrop()
 		end
 
 		-- Bay lên rồi shutdown
-		local char = player.Character
-		local root = char:WaitForChild("HumanoidRootPart")
 		local bv = Instance.new("BodyVelocity", root)
-		bv.Velocity = Vector3.new(0, 80, 0)
 		bv.MaxForce = Vector3.new(0, math.huge, 0)
+		bv.Velocity = Vector3.new(0, 80, 0)
 		task.wait(2)
-		game:Shutdown()
+        game:Shutdown()
 	else
 		print("❌ Không có trái nào, bay tới 'fruit pulp'")
 		local pos = fruitPoints["fruit pulp"]
-		tween(pos, 200)
+		local tw = tween(pos, 200)
+		if tw then tw.Completed:Wait() end
 	end
 end
 
