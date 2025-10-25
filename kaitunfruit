@@ -61,6 +61,16 @@ local function dropfruitpoint()
         ["Gravity"] = Vector3.new(-861.98, 73.27, -190.65),
         ["Mammoth"] = Vector3.new(-896.81, 73.27, -226.52),
         ["T-Rex"] = Vector3.new(-931.64, 73.27, -262.39),
+        ["Duogh"] = Vector3.new(-962.18, 73.27, -288.00),
+        ["Shadow"] = Vector3.new(-982.53, 73.27, -333.67),
+        ["Venom"] = Vector3.new(-1002.88, 73.27, -379.34),
+        ["Control"] = Vector3.new(-1023.23, 73.27, -425.01),
+        ["Gas"] = Vector3.new(-1043.58, 73.27, -470.69),
+        ["Spirit"] = Vector3.new(-1076.18, 73.27, -224.30),
+        ["Leopard"] = Vector3.new(-1100.60, 73.27, -267.93),
+        ["Yeti"] = Vector3.new(-1125.02, 73.27, -311.56),
+        ["Kitsune"] = Vector3.new(-1149.44, 73.27, -355.19),
+        ["Dragon"] = Vector3.new(-1173.86, 73.27, -398.82),
         ["fruit pulp"] = Vector3.new(-526.96, 73.27, -110.69),
     }
 end
@@ -165,7 +175,6 @@ local function teleandrop()
 	local fruitName = GetCurrentFruitName()
 
 	if fruitName then
-		-- Xử lý tên: bỏ chữ "Fruit", trim khoảng trắng, viết thường hết
 		local cleanName = fruitName:gsub("Fruit", ""):gsub("%s+", ""):lower()
 
 		local pos = nil
@@ -217,5 +226,4 @@ spawn(function()
     teleandrop()
     task.wait(0.5)
 end)
-
 
