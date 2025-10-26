@@ -97,81 +97,91 @@ local function ToGift()
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     if not Humanoid then 
-        warn("Not found Humanoid")
+        warn(" Not found Humanoid")
         return 
     end
     
     local myName = LocalPlayer.Name
     local totalSent = 0
     
-    print("\n Start sent gift")
-    print("Sender ", myName)
+    print("\n Start sending gifts")
+    print("Sender:", myName)
 
     for _, receiverName in pairs(receivers) do
-        local skip = false
-
         if receiverName == myName then
-            print("skip:", receiverName, "main acc")
-            skip = true
-        else
-            local receiver = Players:FindFirstChild(receiverName)
-            if not receiver then
-                warn("Receiver OFFLINE ", receiverName)
-                skip = true
-            else
-                print("\n Find:", receiverName)
-            end
+            print(" Skip:", receiverName, "(main acc)")
+            goto nextReceiver
         end
 
-        if not skip then
-            for _, petName in pairs(_G.CF.ListPetGift) do
-                local foundPet = false
+        local receiver = Players:FindFirstChild(receiverName)
+        if not receiver then
+            warn(" Receiver OFFLINE:", receiverName)
+            goto nextReceiver
+        end
 
-                for _, item in pairs(Backpack:GetChildren()) do
-                    if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) and 
-                       not string.find(item.Name:lower(), "seed") then
-                        foundPet = true
-                        task.wait(0.3)
+        print("\n Found:", receiverName)
 
-                        local success = pcall(function()
-                            Humanoid:EquipTool(item)
-                        end)
+        for _, petName in pairs(_G.CF.ListPetGift) do
+            local sentCountForThisPet = 0
+            local foundAny = false
 
-                        if not success then
-                            warn("not equip ", item.Name)
-                            break
-                        end
+            for _, item in pairs(Backpack:GetChildren()) do
+                if item:IsA("Tool")
+                and string.find(item.Name:lower(), petName:lower())
+                and not string.find(item.Name:lower(), "seed") then
+                    
+                    foundAny = true
+                    task.wait(0.2)
 
-                        task.wait(0.5)
-                        local petTool = character:FindFirstChildOfClass("Tool")
-                        
-                        if petTool and string.find(petTool.Name:lower(), petName:lower()) and
-                           not string.find(petTool.Name:lower(), "seed") then
-                            local args = {{Item = petTool, ToGift = receiverName}}
-                            local sendSuccess, err = pcall(function()
-                                giftRemote:FireServer(unpack(args))
-                            end)
+                    local success = pcall(function()
+                        Humanoid:EquipTool(item)
+                    end)
 
-                            if sendSuccess then
-                                print(("Sent: '%s' → '%s'"):format(petTool.Name, receiverName))
-                                totalSent = totalSent + 1
-                                task.wait(_G.CF.giftCooldown or 2)
-                            else
-                                warn(("erro Sent: %s"):format(tostring(err)))
-                            end
-                        end
+                    if not success then
+                        warn("Failed to equip:", item.Name)
                         break
                     end
-                end
 
-                if not foundPet then
-                    warn(("Not Found '%s'"):format(petName))
+                    task.wait(0.3)
+                    local petTool = character:FindFirstChildOfClass("Tool")
+
+                    if petTool and string.find(petTool.Name:lower(), petName:lower()) then
+                        local args = {{Item = petTool, ToGift = receiverName}}
+                        local sendSuccess, err = pcall(function()
+                            giftRemote:FireServer(unpack(args))
+                        end)
+
+                        if sendSuccess then
+                            totalSent = totalSent + 1
+                            sentCountForThisPet = sentCountForThisPet + 1
+                            print(("Sent '%s' → '%s' (Total: %d)"):format(petTool.Name, receiverName, totalSent))
+                        else
+                            warn(("Error sending '%s': %s"):format(petTool.Name, tostring(err)))
+                        end
+
+                        local timeout = 0
+                        repeat
+                            task.wait(0.1)
+                            timeout = timeout + 0.1
+                        until not character:FindFirstChildOfClass("Tool") or timeout > 3
+
+                        task.wait(_G.CF.giftCooldown or 1.5)
+                    end
                 end
             end
+
+            if not foundAny then
+                warn(("Not found pet '%s' in Backpack"):format(petName))
+            elseif sentCountForThisPet > 0 then
+                print(("Sent %d of '%s' to %s"):format(sentCountForThisPet, petName, receiverName))
+            end
         end
+
+        ::nextReceiver::
+        task.wait(0.5)
     end
-    
-    print(("\n Total Sent %d pets\n"):format(totalSent))
+
+    print(("\n Total Sent: %d pets\n"):format(totalSent))
 end
 
 
