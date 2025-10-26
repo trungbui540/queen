@@ -72,7 +72,7 @@ local function ToGift()
 
     for _, receiverName in pairs(receivers) do
         if receiverName == myName then
-            print("Bỏ qua:", receiverName, "chính mình")
+            print("skip:", receiverName, "main acc")
             goto skipReceiver
         end
         
