@@ -111,13 +111,13 @@ local function ToGift()
     for _, receiverName in pairs(receivers) do
         if receiverName == myName then
             print(" Skip:", receiverName, "(main acc)")
-            goto nextReceiver
+            continue
         end
 
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
             warn(" Receiver OFFLINE:", receiverName)
-            goto nextReceiver
+            continue
         end
 
         print("\n Found:", receiverName)
@@ -177,9 +177,6 @@ local function ToGift()
                 print(("Sent %d of '%s' to %s"):format(sentCountForThisPet, petName, receiverName))
             end
         end
-
-        ::nextReceiver::
-        task.wait(0.5)
     end
 
     print(("\n Total Sent: %d pets\n"):format(totalSent))
