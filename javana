@@ -5,17 +5,18 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
--- Remotes
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
 local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
-local FavoriteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FavoritePet") 
+local FavoriteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FavoriteItem") 
 
 local Backpack = LocalPlayer:WaitForChild("Backpack", 10)
 local giftQueue = {}
+local giftSet = {}
+local maxQueueSize = 50
+local acceptThrottle = 1
 
--- Update character reference
 LocalPlayer.CharacterAdded:Connect(function(newChar)
     character = newChar
     task.wait(1)
@@ -23,14 +24,40 @@ LocalPlayer.CharacterAdded:Connect(function(newChar)
 end)
 
 
-local function hookAllRemotes()
-    for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-        if obj:IsA("RemoteEvent") and obj.OnClientEvent then
-            obj.OnClientEvent:Connect(function(...)
+local function pushGift(id)
+    if not id then return end
+    if type(id) ~= "number" then return end
+    if giftSet[id] then return end
+    if #giftQueue >= maxQueueSize then
+        local old = table.remove(giftQueue, 1)
+        if old then giftSet[old] = nil end
+    end
+    table.insert(giftQueue, id)
+    giftSet[id] = true
+end
+
+local function safeHookRemotes()
+    local toCheck = {}
+    if ReplicatedStorage:FindFirstChild("Remotes") then
+        local r = ReplicatedStorage.Remotes
+        if r:FindFirstChild("GiftItem") then table.insert(toCheck, r.GiftItem) end
+        if r:FindFirstChild("AcceptGift") then table.insert(toCheck, r.AcceptGift) end
+    end
+
+    if #toCheck == 0 then
+        local maybeGift = ReplicatedStorage:FindFirstChild("GiftItem")
+        if maybeGift then table.insert(toCheck, maybeGift) end
+    end
+
+    for _, remote in ipairs(toCheck) do
+        if remote and remote:IsA("RemoteEvent") and remote.OnClientEvent then
+            remote.OnClientEvent:Connect(function(...)
                 local args = {...}
-                for _, arg in pairs(args) do
-                    if typeof(arg) == "table" and arg.ID and typeof(arg.ID) == "number" and arg.ID > 1000000000 then
-                        table.insert(giftQueue, arg.ID)
+                for _, a in ipairs(args) do
+                    if type(a) == "table" and a.ID and type(a.ID) == "number" then
+                        local ok = pcall(pushGift, a.ID)
+                        if not ok then
+                        end
                     end
                 end
             end)
@@ -38,23 +65,33 @@ local function hookAllRemotes()
     end
 end
 
-spawn(function()
-    hookAllRemotes()
-    while task.wait(1) do
-        if _G.CF.acceptGifts and #giftQueue > 0 then
-            local giftID = table.remove(giftQueue, 1)
-            local success, err = pcall(function()
-                acceptRemote:FireServer({ID = giftID})
-            end)
-            if success then
-                print("Accepted gift ", giftID)
-            else
-                warn("Failed to accept ", err)
+task.spawn(function()
+    safeHookRemotes()
+
+    while true do
+        task.wait(0.25)
+
+        if _G.CF and _G.CF.acceptGifts and acceptRemote and acceptRemote:IsA("RemoteEvent") then
+            local id = table.remove(giftQueue, 1)
+            if id then
+                giftSet[id] = nil
+                local ok, err = pcall(function()
+                    acceptRemote:FireServer({ID = id})
+                end)
+                if ok then
+                    print("Accepted gift", id)
+                else
+                    warn("Accept failed:", tostring(err))
+                end
+                task.wait(acceptThrottle)
             end
+        end
+
+        if #giftQueue > 20 then
+            task.wait(1)
         end
     end
 end)
-
 
 local function ToGift()
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
@@ -439,8 +476,8 @@ spawn(function()
         if _G.CF.autoSendGift then
             print("\n sent gift...")
             pcall(ToGift)
+            task.wait(3)
         end
-        task.wait(3)
     end
 end)
 
