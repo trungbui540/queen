@@ -3,14 +3,14 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
-local character = LocalPlayer.Character 
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
 -- Remotes
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
 local ItemSell = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ItemSell")
-local FavoriteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FavoriteItem") -- âœ… Fix missing
+local FavoriteRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("FavoritePet") 
 
 local Backpack = LocalPlayer:WaitForChild("Backpack", 10)
 local giftQueue = {}
@@ -47,9 +47,9 @@ spawn(function()
                 acceptRemote:FireServer({ID = giftID})
             end)
             if success then
-                print("âœ… Accepted gift:", giftID)
+                print("Accepted gift:", giftID)
             else
-                warn("âŒ Failed to accept:", err)
+                warn("Failed to accept:", err)
             end
         end
     end
@@ -60,36 +60,36 @@ local function ToGift()
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     if not Humanoid then 
-        warn("âŒ KhÃ´ng tÃ¬m tháº¥y Humanoid")
+        warn("Not found Humanoid")
         return 
     end
     
     local myName = LocalPlayer.Name
     local totalSent = 0
     
-    print("\nðŸŽ Báº®T Äáº¦U Gá»¬I QUÃ€")
-    print("ðŸ‘¤ NgÆ°á»i gá»­i:", myName)
+    print("\n Start sent gift")
+    print("Sender:", myName)
 
     for _, receiverName in pairs(receivers) do
-        -- Skip náº¿u lÃ  chÃ­nh mÃ¬nh
         if receiverName == myName then
-            print("â­ï¸ Bá» qua:", receiverName, "(lÃ  chÃ­nh mÃ¬nh)")
-            continue
+            print("Bỏ qua:", receiverName, "chính mình")
+            goto skipReceiver
         end
         
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
-            warn("âš ï¸ NgÆ°á»i nháº­n OFFLINE:", receiverName)
-            continue
+            warn("Receiver OFFLINE:", receiverName)
+            goto skipReceiver
         end
         
-        print("\nâœ… TÃ¬m tháº¥y:", receiverName)
+        print("\n Find:", receiverName)
 
         for _, petName in pairs(_G.CF.ListPetGift) do
             local foundPet = false
 
             for _, item in pairs(Backpack:GetChildren()) do
-                if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) then
+                if item:IsA("Tool") and string.find(item.Name:lower(), petName:lower()) and 
+                   not string.find(item.Name:lower(), "seed") then
                     foundPet = true
                     task.wait(0.3)
 
@@ -98,25 +98,26 @@ local function ToGift()
                     end)
 
                     if not success then
-                        warn("âŒ KhÃ´ng equip Ä‘Æ°á»£c:", item.Name)
+                        warn("not equip:", item.Name)
                         break
                     end
 
                     task.wait(0.5)
                     local petTool = character:FindFirstChildOfClass("Tool")
                     
-                    if petTool and string.find(petTool.Name:lower(), petName:lower()) then
+                    if petTool and string.find(petTool.Name:lower(), petName:lower()) and
+                       not string.find(petTool.Name:lower(), "seed") then
                         local args = {{Item = petTool, ToGift = receiverName}}
                         local sendSuccess, err = pcall(function()
                             giftRemote:FireServer(unpack(args))
                         end)
 
                         if sendSuccess then
-                            print(("ðŸ“¤ ÄÃƒ Gá»¬I: '%s' â†’ '%s'"):format(petTool.Name, receiverName))
+                            print(("Sent: '%s' → '%s'"):format(petTool.Name, receiverName))
                             totalSent = totalSent + 1
                             task.wait(_G.CF.giftCooldown)
                         else
-                            warn(("âŒ Lá»—i gá»­i: %s"):format(tostring(err)))
+                            warn(("erro Sent: %s"):format(tostring(err)))
                         end
                     end
                     break
@@ -124,12 +125,13 @@ local function ToGift()
             end
 
             if not foundPet then
-                warn(("âš ï¸ KhÃ´ng tÃ¬m tháº¥y: '%s'"):format(petName))
+                warn(("Not Found: '%s'"):format(petName))
             end
         end
+        ::skipReceiver::
     end
     
-    print(("\nðŸ“Š Tá»”NG: ÄÃ£ gá»­i %d pets\n"):format(totalSent))
+    print(("\n TỔNG: Sent %d pets\n"):format(totalSent))
 end
 
 local function SellMaxInventory()
@@ -152,18 +154,18 @@ local function SellMaxInventory()
     local itemCount = #Backpack:GetChildren()
     
     if itemCount < maxInventory then
-        print(("ðŸ“¦ Inventory: %d/%d - ChÆ°a Ä‘áº§y"):format(itemCount, maxInventory))
+        print(("Inventory: %d/%d - Not Full"):format(itemCount, maxInventory))
         return false
     end
     
-    print(("ðŸ”´ Äáº¦Y: %d/%d - Báº®T Äáº¦U BÃN!"):format(itemCount, maxInventory))
+    print(("Full: %d/%d - Start Sell!"):format(itemCount, maxInventory))
     
     local success = pcall(function()
         ItemSell:FireServer()
     end)
     
     if not success then
-        warn("âŒ Lá»—i gá»­i yÃªu cáº§u bÃ¡n")
+        warn("erro request selling")
         return false
     end
     
@@ -184,7 +186,6 @@ local function SellMaxInventory()
     local yesBtn = yes:FindFirstChild("TextButton")
     if not yesBtn then return false end
     
-    -- Äá»£i popup hiá»‡n
     local timeout = 0
     while not popupGui.Visible and timeout < 10 do
         task.wait(0.1)
@@ -192,12 +193,12 @@ local function SellMaxInventory()
     end
     
     if not popupGui.Visible then
-        warn("â±ï¸ Popup khÃ´ng hiá»‡n")
+        warn("Popup not show")
         return false
     end
     
     task.wait(0.2)
-    print("ðŸŸ¢ Báº¥m YES...")
+    print("YES...")
 
     pcall(function()
         for _, conn in pairs(getconnections(yesBtn.Activated)) do
@@ -211,7 +212,6 @@ local function SellMaxInventory()
         end
     end)
     
-    print("âœ… ÄÃ£ bÃ¡n!")
     task.wait(0.5)
     return true
 end
@@ -242,7 +242,7 @@ local function removeAllPetsFromPlots()
     local plots = workspace:FindFirstChild("Plots")
     
     if not plots then
-        warn("âŒ KhÃ´ng tÃ¬m tháº¥y Plots")
+        warn("Not Found Plots")
         return
     end
     
@@ -262,10 +262,10 @@ local function removeAllPetsFromPlots()
                         
                         if success then
                             count = count + 1
-                            print("âœ… ÄÃ£ xÃ³a:", plant.Name)
+                            print("delete:", plant.Name)
                             task.wait(0.3)
                         else
-                            warn("âŒ Lá»—i xÃ³a:", plant.Name)
+                            warn("erro delete:", plant.Name)
                         end
                     end
                 end
@@ -273,9 +273,8 @@ local function removeAllPetsFromPlots()
         end
     end
     
-    print(("ðŸ—‘ï¸ ÄÃ£ xÃ³a %d pets khá»i plots"):format(count))
+    print(("Delete %d pets From plots"):format(count))
 end
-
 
 local function isFavorited(slot)
     local heart = slot:FindFirstChild("HeartIcon")
@@ -305,7 +304,6 @@ local function tryFavorite(slot, idx, location)
 
     local uuid = getUUID(slot)
     
-    -- Náº¿u khÃ´ng tÃ¬m tháº¥y UUID trong slot, tÃ¬m trong Backpack
     if not uuid then
         for _, item in ipairs(Backpack:GetChildren()) do
             if item.Name:lower():find(petName:lower()) then
@@ -316,12 +314,12 @@ local function tryFavorite(slot, idx, location)
     end
 
     if uuid then
-        print(("â­ [%s] Favorite: %s (Slot %d)"):format(location, petName, idx))
+        print(("[%s] Favorite: %s (Slot %d)"):format(location, petName, idx))
         FavoriteRemote:FireServer(uuid)
         task.wait(0.3)
         return true
     else
-        warn(("âŒ [%s] KhÃ´ng tÃ¬m tháº¥y UUID: %s"):format(location, petName))
+        warn(("[%s] Not Found UUID: %s"):format(location, petName))
     end
     return false
 end
@@ -329,13 +327,13 @@ end
 local function scanAndFavoritePets()
     local backpackGui = LocalPlayer:FindFirstChild("PlayerGui")
     if not backpackGui then 
-        warn("âŒ KhÃ´ng tÃ¬m tháº¥y PlayerGui")
+        warn("Not Found PlayerGui")
         return 
     end
     
     backpackGui = backpackGui:FindFirstChild("BackpackGui")
     if not backpackGui then 
-        warn("âŒ KhÃ´ng tÃ¬m tháº¥y BackpackGui")
+        warn("Not Found BackpackGui")
         return 
     end
     
@@ -364,9 +362,9 @@ local function scanAndFavoritePets()
         end
         
         if not gui then
-            warn("âŒ KhÃ´ng tÃ¬m tháº¥y:", cfg.name)
+            warn("Not Found:", cfg.name)
         else
-            print(("ðŸ” QuÃ©t %s..."):format(cfg.name))
+            print(("Sweep %s..."):format(cfg.name))
             local count = 0
             
             for i = 1, cfg.range do
@@ -377,7 +375,7 @@ local function scanAndFavoritePets()
             end
             
             if count > 0 then
-                print(("  âœ… %s: %d pets favorite"):format(cfg.name, count))
+                print(("%s: %d pets favorite"):format(cfg.name, count))
             end
         end
     end
@@ -386,7 +384,7 @@ end
 
 local function CheckAndManageInventory()
     if not Backpack then
-        warn("âŒ Backpack khÃ´ng tá»“n táº¡i")
+        warn("Backpack does not exist")
         return
     end
     
@@ -409,14 +407,13 @@ local function CheckAndManageInventory()
     local itemCount = #Backpack:GetChildren()
     
     if itemCount >= maxInventory then
-        print("ðŸ”´ Inventory Äáº¦Y!")
-        print("  â†’ BÆ°á»›c 1: BÃ¡n items...")
+        print("  → quest 1: Ban items...")
         pcall(SellMaxInventory)
         task.wait(3)
-        print("  â†’ BÆ°á»›c 2: XÃ³a pets khá»i plots...")
+        print("  → quest 2: Xoa pets khoi plots...")
         pcall(removeAllPetsFromPlots)
     else
-        print("ðŸŸ¢ Inventory OK, xÃ³a pets khá»i plots...")
+        print("Inventory OK, xoa pets khoi plots...")
         pcall(removeAllPetsFromPlots)
     end
 end
@@ -424,32 +421,23 @@ end
 
 spawn(function()
     task.wait(2)
-    print("\n" .. string.rep("=", 60))
-    print("ðŸš€ SCRIPT STARTED!")
-    print(string.rep("=", 60))
-    
     while true do
-        -- 1. Quáº£n lÃ½ inventory
-        print("\nðŸ” Kiá»ƒm tra inventory...")
+        print("\n Kiem tra inventory...")
         pcall(CheckAndManageInventory)
-        task.wait(2)
+        task.wait(1)
         
-        -- 2. Auto favorite (náº¿u báº­t)
         if _G.CF.autoFavorite then
-            print("\nâ­ QuÃ©t vÃ  favorite pets...")
+            print("\n Quet và favorite pets...")
             pcall(scanAndFavoritePets)
-            task.wait(1)
+            task.wait(2)
         end
         
-        -- 3. Gá»­i quÃ  (náº¿u báº­t)
         if _G.CF.autoSendGift then
-            print("\nðŸŽ Gá»­i quÃ ...")
+            print("\n sent gift...")
             pcall(ToGift)
         end
-        
-        print("\nâ³ Äá»£i 5 giÃ¢y...")
-        print(string.rep("=", 60))
-        task.wait(5)
+        task.wait(3)
     end
 end)
 
+print(" Script loaded! Auto loops started.")
