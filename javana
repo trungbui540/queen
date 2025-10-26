@@ -131,7 +131,7 @@ local function ToGift()
         ::skipReceiver::
     end
     
-    print(("\n TỔNG: Sent %d pets\n"):format(totalSent))
+    print(("\n Total: Sent %d pets\n"):format(totalSent))
 end
 
 local function SellMaxInventory()
