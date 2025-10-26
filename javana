@@ -95,91 +95,103 @@ task.spawn(function()
 end)
 
 local function ToGift()
-    local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
-    local Humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not Humanoid then 
-        warn(" Not found Humanoid")
-        return 
-    end
-    
-    local myName = LocalPlayer.Name
-    local totalSent = 0
-    
-    print("\n Start sending gifts")
-    print("Sender:", myName)
+local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
+local Humanoid = character:FindFirstChildOfClass("Humanoid")
 
-    for _, receiverName in pairs(receivers) do
+local myName = LocalPlayer.Name
+local totalSent = 0
+local mode = string.lower(_G.CF.Mode or "list")  -- "list" hoặc "damage"
+local minDamage = _G.CF.MinDamage or 0
+local maxDamage = _G.CF.MaxDamage or math.huge
+local giftCooldown = _G.CF.giftCooldown or 2
+local listPetGift = _G.CF.ListPetGift or {}
+
+    print("👤 Người gửi:", myName)
+    if mode == "damage" then
+        print(("Chế độ: GỬI THEO DAMAGE (%d–%d)"):format(minDamage, maxDamage))
+    else
+        print((" Chế độ: GỬI THEO DANH SÁCH TÊN (%d pet trong danh sách)"):format(#listPetGift))
+    end
+
+    for _, receiverName in ipairs(receivers) do
         if receiverName == myName then
-            print(" Skip:", receiverName, "(main acc)")
+            print("⏩ Bỏ qua tài khoản chính:", receiverName)
             continue
         end
 
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
-            warn(" Receiver OFFLINE:", receiverName)
+            warn("⚠️ Người nhận OFFLINE:", receiverName)
             continue
         end
 
-        print("\n Found:", receiverName)
+        print("\n📨 Gửi cho:", receiverName)
+        local sentCount = 0
 
-        for _, petName in pairs(_G.CF.ListPetGift) do
-            local sentCountForThisPet = 0
-            local foundAny = false
+        for _, item in ipairs(Backpack:GetChildren()) do
+            if not item:IsA("Tool") then continue end
+            if string.find(item.Name:lower(), "seed") then continue end
 
-            for _, item in pairs(Backpack:GetChildren()) do
-                if item:IsA("Tool")
-                and string.find(item.Name:lower(), petName:lower())
-                and not string.find(item.Name:lower(), "seed") then
-                    
-                    foundAny = true
-                    task.wait(0.2)
+            local damageValue = 0
+            if item:GetAttribute("Damage") then
+                damageValue = tonumber(item:GetAttribute("Damage")) or 0
+            else
+                local info = item:FindFirstChild("Info") or item:FindFirstChild("Stats") or item:FindFirstChild("Configuration")
+                if info and info:FindFirstChild("Damage") then
+                    damageValue = tonumber(info.Damage.Value) or 0
+                end
+            end
 
-                    local success = pcall(function()
-                        Humanoid:EquipTool(item)
-                    end)
-
-                    if not success then
-                        warn("Failed to equip:", item.Name)
+            local isValid = false
+            if mode == "damage" then
+                if damageValue >= minDamage and damageValue <= maxDamage then
+                    isValid = true
+                end
+            else
+                for _, name in ipairs(listPetGift) do
+                    if string.find(item.Name:lower(), name:lower()) then
+                        isValid = true
                         break
-                    end
-
-                    task.wait(0.3)
-                    local petTool = character:FindFirstChildOfClass("Tool")
-
-                    if petTool and string.find(petTool.Name:lower(), petName:lower()) then
-                        local args = {{Item = petTool, ToGift = receiverName}}
-                        local sendSuccess, err = pcall(function()
-                            giftRemote:FireServer(unpack(args))
-                        end)
-
-                        if sendSuccess then
-                            totalSent = totalSent + 1
-                            sentCountForThisPet = sentCountForThisPet + 1
-                            print(("Sent '%s' → '%s' (Total: %d)"):format(petTool.Name, receiverName, totalSent))
-                        else
-                            warn(("Error sending '%s': %s"):format(petTool.Name, tostring(err)))
-                        end
-
-                        local timeout = 0
-                        repeat
-                            task.wait(0.1)
-                            timeout = timeout + 0.1
-                        until not character:FindFirstChildOfClass("Tool") or timeout > 3
-
-                        task.wait(_G.CF.giftCooldown or 1.5)
                     end
                 end
             end
 
-            if not foundAny then
-                warn(("Not found pet '%s' in Backpack"):format(petName))
-            elseif sentCountForThisPet > 0 then
-                print(("Sent %d of '%s' to %s"):format(sentCountForThisPet, petName, receiverName))
+            if isValid then
+                local ok, err = pcall(function()
+                    Humanoid:EquipTool(item)
+                    task.wait(0.25)
+                    local equipped = character:FindFirstChildOfClass("Tool")
+                    if equipped then
+                        local args = {{Item = equipped, ToGift = receiverName}}
+                        giftRemote:FireServer(unpack(args))
+                        totalSent = totalSent + 1
+                        sentCount = sentCount + 1
+                        print(("Gửi '%s' (Damage: %d) → %s"):format(item.Name, damageValue, receiverName))
+                    end
+                end)
+
+                if not ok then
+                    warn(("Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
+                end
+
+                local timeout = 0
+                repeat
+                    task.wait(0.1)
+                    timeout = timeout + 0.1
+                until not character:FindFirstChildOfClass("Tool") or timeout > 3
+
+                task.wait(giftCooldown)
+            else
+                if mode == "damage" then
+                    print(("'%s' Damage %d - ngoài khoảng"):format(item.Name, damageValue))
+                end
             end
         end
+
+        print((" Đã gửi %d pets cho %s"):format(sentCount, receiverName))
     end
 
-    print(("\n Total Sent: %d pets\n"):format(totalSent))
+    print(("\n : %d pets.\n"):format(totalSent))
 end
 
 
