@@ -119,6 +119,11 @@ local listPetGift = _G.CF.ListPetGift or {}
             continue
         end
 
+    if table.find(_G.CF.Receivers, receiverName) then
+        print("Bỏ qua receiver nằm trong danh sách Receivers:", receiverName)
+        continue
+    end
+
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
             warn(" Người nhận OFFLINE:", receiverName)
