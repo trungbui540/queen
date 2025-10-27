@@ -224,20 +224,25 @@ local function SellMaxInventory()
     return true
 end
 
--- 🧠 Kiểm tra inventory
+-- 🧠 Quản lý kho
 local function CheckAndManageInventory()
     if not Backpack then return end
+
     local hud = LocalPlayer.PlayerGui:FindFirstChild("HUD")
     if not hud then return end
-
     local maxInvObj = hud:FindFirstChild("MaxInv")
     if not maxInvObj then return end
 
     local maxInv = tonumber(maxInvObj.Value or maxInvObj.Text) or 250
-    if #Backpack:GetChildren() >= maxInv then
-        print("📦 Full Inventory → Bán + Xoá pets...")
+    local itemCount = #Backpack:GetChildren()
+
+    if itemCount >= maxInv then
+        print("⚠️ Full Inventory → Bán + Xoá pets plot...")
         pcall(SellMaxInventory)
-        task.wait(3)
+        task.wait(2)
+        pcall(removeAllPetsFromPlots)
+    else
+        print("📦 Inventory OK → Dọn pets khỏi plots...")
         pcall(removeAllPetsFromPlots)
     end
 end
