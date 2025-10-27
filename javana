@@ -95,34 +95,37 @@ task.spawn(function()
 end)
 
 local function ToGift()
-local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
-local Humanoid = character:FindFirstChildOfClass("Humanoid")
+    local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
+    local Humanoid = character:FindFirstChildOfClass("Humanoid")
 
-local myName = LocalPlayer.Name
-local totalSent = 0
-local mode = string.lower(_G.CF.Mode or "list")  -- "list" hoặc "damage"
-local minDamage = _G.CF.MinDamage or 0
-local maxDamage = _G.CF.MaxDamage or math.huge
-local giftCooldown = _G.CF.giftCooldown or 2
-local listPetGift = _G.CF.ListPetGift or {}
+    local myName = LocalPlayer.Name
+    local totalSent = 0
+    local mode = string.lower(_G.CF.Mode or "list")  -- "list" hoặc "damage"
+    local minDamage = _G.CF.MinDamage or 0
+    local maxDamage = _G.CF.MaxDamage or math.huge
+    local giftCooldown = _G.CF.giftCooldown or 2
+    local listPetGift = _G.CF.ListPetGift or {}
 
-    print(" Người gửi:", myName)
+    print("Người gửi:", myName)
     if mode == "damage" then
-        print(("Chế độ: GỬI THEO DAMAGE (%d–%d)"):format(minDamage, maxDamage))
+        print((" Chế độ: GỬI THEO DAMAGE (%d – %d)"):format(minDamage, maxDamage))
     else
         print((" Chế độ: GỬI THEO DANH SÁCH TÊN (%d pet trong danh sách)"):format(#listPetGift))
     end
 
-    for _, receiverName in ipairs(receivers) do
+    for _, player in ipairs(Players:GetPlayers()) do
+        local receiverName = player.Name
+
+        -- Bỏ qua bản thân
         if receiverName == myName then
-            print(" Bỏ qua tài khoản chính:", receiverName)
             continue
         end
 
-    if table.find(_G.CF.Receivers, receiverName) then
-        print("Bỏ qua receiver nằm trong danh sách Receivers:", receiverName)
-        continue
-    end
+        -- Bỏ qua nếu receiver nằm trong danh sách Receivers
+        if table.find(receivers, receiverName) then
+            print("Bỏ qua receiver nằm trong danh sách Receivers:", receiverName)
+            continue
+        end
 
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
@@ -164,21 +167,22 @@ local listPetGift = _G.CF.ListPetGift or {}
             if isValid then
                 local ok, err = pcall(function()
                     Humanoid:EquipTool(item)
-                    task.wait(0.25)
+                    task.wait(0.3)
                     local equipped = character:FindFirstChildOfClass("Tool")
                     if equipped then
                         local args = {{Item = equipped, ToGift = receiverName}}
                         giftRemote:FireServer(unpack(args))
-                        totalSent = totalSent + 1
-                        sentCount = sentCount + 1
+                        totalSent += 1
+                        sentCount += 1
                         print(("Gửi '%s' (Damage: %d) → %s"):format(item.Name, damageValue, receiverName))
                     end
                 end)
 
                 if not ok then
-                    warn(("Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
+                    warn(("❌ Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
                 end
 
+                -- Ép gỡ tool để tránh kẹt ở tool cuối
                 task.wait(0.2)
                 for _, tool in ipairs(character:GetChildren()) do
                     if tool:IsA("Tool") then
@@ -186,25 +190,23 @@ local listPetGift = _G.CF.ListPetGift or {}
                     end
                 end
 
+                -- Chờ tool biến mất khỏi character
                 local timeout = 0
                 repeat
                     task.wait(0.1)
-                    timeout = timeout + 0.1
+                    timeout += 0.1
                 until not character:FindFirstChildOfClass("Tool") or timeout > 3
 
                 task.wait(giftCooldown)
-            else
-                if mode == "damage" then
-                    print(("'%s' Damage %d - ngoài khoảng"):format(item.Name, damageValue))
-                end
             end
         end
 
         print((" Đã gửi %d pets cho %s"):format(sentCount, receiverName))
     end
 
-    print(("\n : %d pets.\n"):format(totalSent))
+    print(("\n Tổng cộng đã gửi: %d pets.\n"):format(totalSent))
 end
+
 
 
 local function SellMaxInventory()
