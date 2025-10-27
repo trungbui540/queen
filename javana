@@ -106,7 +106,7 @@ local maxDamage = _G.CF.MaxDamage or math.huge
 local giftCooldown = _G.CF.giftCooldown or 2
 local listPetGift = _G.CF.ListPetGift or {}
 
-    print("👤 Người gửi:", myName)
+    print(" Người gửi:", myName)
     if mode == "damage" then
         print(("Chế độ: GỬI THEO DAMAGE (%d–%d)"):format(minDamage, maxDamage))
     else
@@ -115,17 +115,17 @@ local listPetGift = _G.CF.ListPetGift or {}
 
     for _, receiverName in ipairs(receivers) do
         if receiverName == myName then
-            print("⏩ Bỏ qua tài khoản chính:", receiverName)
+            print(" Bỏ qua tài khoản chính:", receiverName)
             continue
         end
 
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
-            warn("⚠️ Người nhận OFFLINE:", receiverName)
+            warn(" Người nhận OFFLINE:", receiverName)
             continue
         end
 
-        print("\n📨 Gửi cho:", receiverName)
+        print("\n Gửi cho:", receiverName)
         local sentCount = 0
 
         for _, item in ipairs(Backpack:GetChildren()) do
@@ -172,6 +172,13 @@ local listPetGift = _G.CF.ListPetGift or {}
 
                 if not ok then
                     warn(("Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
+                end
+
+                task.wait(0.2)
+                for _, tool in ipairs(character:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        tool.Parent = Backpack
+                    end
                 end
 
                 local timeout = 0
