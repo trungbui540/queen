@@ -148,78 +148,101 @@ local function ToGift()
 end
 
 local function removeAllPetsFromPlots()
-    local plots = workspace:FindFirstChild("Plots")
-    if not plots then
-        warn("❌ Không tìm thấy workspace.Plots!")
-        return
-    end
-
-    local plot = plots:FindFirstChild("1")
-    if not plot then
-        warn("❌ Không tìm thấy plot '1' trong Plots!")
-        return
-    end
-
-    local hitboxes = plot:FindFirstChild("Hitboxes")
-    if not hitboxes then
-        warn("❌ Không tìm thấy 'Hitboxes' trong plot 1!")
-        return
-    end
-
     local count = 0
-    print("🧹 Đang xoá toàn bộ pets trong Plot 1 → Hitboxes...")
-
-    for _, obj in ipairs(hitboxes:GetChildren()) do
-        local uuid = obj.Name  -- 👈 chính là UUID
-        if uuid and uuid ~= "" then
-            local ok, err = pcall(function()
-                removeRemote:FireServer(uuid)
-            end)
-            if ok then
-                count += 1
-                print(("✅ Đã xoá '%s'"):format(uuid))
-            else
-                warn(("❌ Lỗi khi xoá '%s': %s"):format(uuid, tostring(err)))
+    for _, plot in pairs(workspace.Plots:GetChildren()) do
+        local hitboxes = plot:FindFirstChild("Hitboxes")
+        if hitboxes then
+            for _, pet in pairs(hitboxes:GetChildren()) do
+                task.wait(0.25) -- let game finish any animations
+                pcall(function()
+                    removeRemote:FireServer(pet.Name)
+                end)
+                count = count + 1
+                task.wait(0.2)
             end
-            task.wait(0.1) -- delay nhẹ chống flood
         end
     end
-
-    print(("✨ Hoàn tất! Đã xoá tổng cộng %d pets trong Hitboxes."):format(count))
 end
 
 
--- 💰 Bán items khi đầy
 local function SellMaxInventory()
-    local hud = LocalPlayer.PlayerGui:FindFirstChild("HUD")
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return false end
+    
+    local hud = playerGui:FindFirstChild("HUD")
     if not hud then return false end
-
+    
     local maxInvObj = hud:FindFirstChild("MaxInv")
     if not maxInvObj then return false end
-
-    local maxInv = tonumber(maxInvObj.Value or maxInvObj.Text) or 250
+    
+    local maxInventory = 250
+    if maxInvObj:IsA("IntValue") or maxInvObj:IsA("NumberValue") then
+        maxInventory = maxInvObj.Value
+    elseif maxInvObj:IsA("TextLabel") or maxInvObj:IsA("TextBox") then
+        maxInventory = tonumber(maxInvObj.Text) or 250
+    end
+    
     local itemCount = #Backpack:GetChildren()
-    if itemCount < maxInv then return false end
-
-    print(("Full %d/%d - Start Sell!"):format(itemCount, maxInv))
-    ItemSell:FireServer()
+    
+    if itemCount < maxInventory then
+        print(("Inventory %d/%d - Not Full"):format(itemCount, maxInventory))
+        return false
+    end
+    
+    print(("Full %d/%d - Start Sell!"):format(itemCount, maxInventory))
+    
+    local success = pcall(function()
+        ItemSell:FireServer()
+    end)
+    
+    if not success then
+        warn("erro request selling")
+        return false
+    end
+    
     task.wait(0.5)
-
-    local popup = hud:FindFirstChild("PopUp")
-    if not popup or not popup.Visible then return false end
-
-    local yesBtn = popup:FindFirstChild("Content")
-        and popup.Content:FindFirstChild("Buttons")
-        and popup.Content.Buttons:FindFirstChild("Yes")
-        and popup.Content.Buttons.Yes:FindFirstChild("TextButton")
+    
+    local popupGui = hud:FindFirstChild("PopUp")
+    if not popupGui then return false end
+    
+    local content = popupGui:FindFirstChild("Content")
+    if not content then return false end
+    
+    local buttons = content:FindFirstChild("Buttons")
+    if not buttons then return false end
+    
+    local yes = buttons:FindFirstChild("Yes")
+    if not yes then return false end
+    
+    local yesBtn = yes:FindFirstChild("TextButton")
     if not yesBtn then return false end
+    
+    local timeout = 0
+    while not popupGui.Visible and timeout < 10 do
+        task.wait(0.1)
+        timeout = timeout + 0.1
+    end
+    
+    if not popupGui.Visible then
+        warn("Popup not show")
+        return false
+    end
+    
+    task.wait(0.2)
+    print("YES...")
 
     pcall(function()
-        for _, conn in pairs(getconnections(yesBtn.Activated)) do conn:Fire() end
-        for _, conn in pairs(getconnections(yesBtn.MouseButton1Click)) do conn:Fire() end
+        for _, conn in pairs(getconnections(yesBtn.Activated)) do
+            conn:Fire()
+        end
     end)
-
-    print("✅ Đã xác nhận bán items.")
+    
+    pcall(function()
+        for _, conn in pairs(getconnections(yesBtn.MouseButton1Click)) do
+            conn:Fire()
+        end
+    end)
+    
     task.wait(0.5)
     return true
 end
