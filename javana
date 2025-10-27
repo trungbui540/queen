@@ -147,27 +147,47 @@ local function ToGift()
     print(("✨ Tổng cộng đã gửi %d pets."):format(totalSent))
 end
 
--- 🧹 Xoá pet khỏi plots
 local function removeAllPetsFromPlots()
     local plots = workspace:FindFirstChild("Plots")
-    if not plots then return warn("❌ Không tìm thấy workspace.Plots!") end
-    local plot = plots:FindFirstChild("1")
-    if not plot then return warn("❌ Không tìm thấy plot '1'!") end
-    local hitboxes = plot:FindFirstChild("Hitboxes")
-    if not hitboxes then return warn("❌ Không tìm thấy Hitboxes!") end
-
-    print("🧹 Đang xoá pets trong Plot 1...")
-    local count = 0
-    for _, obj in ipairs(hitboxes:GetChildren()) do
-        local uuid = obj:GetAttribute("UUID")
-        if uuid then
-            pcall(function() removeRemote:FireServer(uuid) end)
-            count += 1
-        end
-        task.wait(0.25)
+    if not plots then
+        warn("❌ Không tìm thấy workspace.Plots!")
+        return
     end
-    print(("✨ Đã xoá %d pets khỏi Plot."):format(count))
+
+    local plot = plots:FindFirstChild("1")
+    if not plot then
+        warn("❌ Không tìm thấy plot '1' trong Plots!")
+        return
+    end
+
+    local hitboxes = plot:FindFirstChild("Hitboxes")
+    if not hitboxes then
+        warn("❌ Không tìm thấy 'Hitboxes' trong plot 1!")
+        return
+    end
+
+    local count = 0
+    print("🧹 Đang xoá toàn bộ pets trong Plot 1 → Hitboxes...")
+
+    for _, obj in ipairs(hitboxes:GetChildren()) do
+        local uuid = obj.Name  -- 👈 chính là UUID
+        if uuid and uuid ~= "" then
+            local ok, err = pcall(function()
+                removeRemote:FireServer(uuid)
+            end)
+            if ok then
+                count += 1
+                print(("✅ Đã xoá '%s'"):format(uuid))
+            else
+                warn(("❌ Lỗi khi xoá '%s': %s"):format(uuid, tostring(err)))
+            end
+            task.wait(0.1) -- delay nhẹ chống flood
+        end
+    end
+
+    print(("✨ Hoàn tất! Đã xoá tổng cộng %d pets trong Hitboxes."):format(count))
 end
+
 
 -- 💰 Bán items khi đầy
 local function SellMaxInventory()
