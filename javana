@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
--- 🧩 Remotes
+-- Remotes
 local giftRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("GiftItem")
 local acceptRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("AcceptGift")
 local removeRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RemoveItem")
@@ -17,206 +17,249 @@ local giftQueue, giftSet = {}, {}
 local maxQueueSize, acceptThrottle = 50, 1
 
 LocalPlayer.CharacterAdded:Connect(function(newChar)
-	character = newChar
-	task.wait(1)
-	Backpack = LocalPlayer:WaitForChild("Backpack", 10)
+    character = newChar
+    task.wait(1)
+    Backpack = LocalPlayer:WaitForChild("Backpack", 10)
 end)
 
 -- 📨 Queue xử lý nhận gift
 local function pushGift(id)
-	if not id or type(id) ~= "number" or giftSet[id] then return end
-	if #giftQueue >= maxQueueSize then
-		local old = table.remove(giftQueue, 1)
-		if old then giftSet[old] = nil end
-	end
-	table.insert(giftQueue, id)
-	giftSet[id] = true
+    if not id or type(id) ~= "number" or giftSet[id] then return end
+    if #giftQueue >= maxQueueSize then
+        local old = table.remove(giftQueue, 1)
+        if old then giftSet[old] = nil end
+    end
+    table.insert(giftQueue, id)
+    giftSet[id] = true
 end
 
 -- 🧩 Hook remote nhận quà
 local function safeHookRemotes()
-	local toCheck = {}
-	local remotesFolder = ReplicatedStorage:FindFirstChild("Remotes")
-	if remotesFolder then
-		if remotesFolder:FindFirstChild("GiftItem") then table.insert(toCheck, remotesFolder.GiftItem) end
-		if remotesFolder:FindFirstChild("AcceptGift") then table.insert(toCheck, remotesFolder.AcceptGift) end
-	end
+    local toCheck = {}
+    if ReplicatedStorage:FindFirstChild("Remotes") then
+        local r = ReplicatedStorage.Remotes
+        if r:FindFirstChild("GiftItem") then table.insert(toCheck, r.GiftItem) end
+        if r:FindFirstChild("AcceptGift") then table.insert(toCheck, r.AcceptGift) end
+    end
 
-	for _, remote in ipairs(toCheck) do
-		if remote:IsA("RemoteEvent") then
-			remote.OnClientEvent:Connect(function(...)
-				for _, a in ipairs({...}) do
-					if type(a) == "table" and a.ID then
-						pcall(pushGift, a.ID)
-					end
-				end
-			end)
-		end
-	end
+    if #toCheck == 0 then
+        local maybeGift = ReplicatedStorage:FindFirstChild("GiftItem")
+        if maybeGift then table.insert(toCheck, maybeGift) end
+    end
+
+    for _, remote in ipairs(toCheck) do
+        if remote:IsA("RemoteEvent") then
+            remote.OnClientEvent:Connect(function(...)
+                for _, a in ipairs({...}) do
+                    if type(a) == "table" and a.ID then
+                        pcall(pushGift, a.ID)
+                    end
+                end
+            end)
+        end
+    end
 end
 
 -- 🔄 Tự động accept gift
 task.spawn(function()
-	safeHookRemotes()
-	while true do
-		task.wait(0.25)
-		if _G.CF and _G.CF.acceptGifts and acceptRemote then
-			local id = table.remove(giftQueue, 1)
-			if id then
-				giftSet[id] = nil
-				local ok, err = pcall(function()
-					acceptRemote:FireServer({ID = id})
-				end)
-				if ok then
-					print("✅ Accepted gift", id)
-				else
-					warn("❌ Accept failed:", tostring(err))
-				end
-				task.wait(acceptThrottle)
-			end
-		end
-	end
+    safeHookRemotes()
+
+    while true do
+        task.wait(0.25)
+        if _G.CF and _G.CF.acceptGifts and acceptRemote then
+            local id = table.remove(giftQueue, 1)
+            if id then
+                giftSet[id] = nil
+                local ok, err = pcall(function()
+                    acceptRemote:FireServer({ID = id})
+                end)
+                if ok then
+                    print("✅ Accepted gift", id)
+                else
+                    warn("❌ Accept failed:", tostring(err))
+                end
+                task.wait(acceptThrottle)
+            end
+        end
+    end
 end)
 
 -- 🎁 Gửi quà
 local function ToGift()
-	local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
-	local Humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not Humanoid then return warn("Không tìm thấy Humanoid!") end
+    local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
+    local Humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then return warn("Không tìm thấy Humanoid!") end
 
-	local myName = LocalPlayer.Name
-	if table.find(receivers, myName) then
-		print("🚫 Người gửi nằm trong danh sách Receivers, bỏ qua.")
-		return
-	end
+    local myName = LocalPlayer.Name
+    if table.find(receivers, myName) then
+        print("🚫 Người gửi nằm trong danh sách Receivers, bỏ qua.")
+        return
+    end
 
-	local totalSent = 0
-	local minDamage = _G.CF.MinDamage or 0
-	local maxDamage = _G.CF.MaxDamage or math.huge
-	local giftCooldown = _G.CF.giftCooldown or 2
-	local listPetGift = _G.CF.ListPetGift or {}
+    local totalSent = 0
+    local minDamage = _G.CF.MinDamage or 0
+    local maxDamage = _G.CF.MaxDamage or math.huge
+    local giftCooldown = _G.CF.giftCooldown or 2
+    local listPetGift = _G.CF.ListPetGift or {}
 
-	for _, receiverName in ipairs(receivers) do
-		if receiverName == myName then continue end
-		local receiver = Players:FindFirstChild(receiverName)
-		if not receiver then
-			warn("⚠️ Người nhận OFFLINE:", receiverName)
-			continue
-		end
+    for _, receiverName in ipairs(receivers) do
+        if receiverName == myName then continue end
+        local receiver = Players:FindFirstChild(receiverName)
+        if not receiver then
+            warn("⚠️ Người nhận OFFLINE:", receiverName)
+            continue
+        end
 
-		print(("\n🎁 Gửi cho: %s"):format(receiverName))
-		for _, item in ipairs(Backpack:GetChildren()) do
-			if not item:IsA("Tool") then continue end
-			if string.find(item.Name:lower(), "seed") then continue end
+        print(("\n🎁 Gửi cho: %s"):format(receiverName))
+        for _, item in ipairs(Backpack:GetChildren()) do
+            if not item:IsA("Tool") then continue end
+            if string.find(item.Name:lower(), "seed") then continue end
 
-			local dmg = tonumber(item:GetAttribute("Damage")) or 0
-			local isInList = false
-			for _, name in ipairs(listPetGift) do
-				if string.find(item.Name:lower(), name:lower()) then
-					isInList = true break
-				end
-			end
+            local dmg = tonumber(item:GetAttribute("Damage")) or 0
+            local isInList = false
+            for _, name in ipairs(listPetGift) do
+                if string.find(item.Name:lower(), name:lower()) then
+                    isInList = true break
+                end
+            end
 
-			if not (isInList or (dmg >= minDamage and dmg <= maxDamage)) then continue end
+            if not (isInList or (dmg >= minDamage and dmg <= maxDamage)) then continue end
 
-			local ok, err = pcall(function()
-				Humanoid:EquipTool(item)
-				task.wait(0.25)
-				local equipped = character:FindFirstChildOfClass("Tool")
-				if equipped then
-					giftRemote:FireServer({{Item = equipped, ToGift = receiverName}})
-					totalSent += 1
-					print(("✅ Sent '%s' (Dmg %d) → %s"):format(item.Name, dmg, receiverName))
-				end
-			end)
-			if not ok then warn(("❌ Lỗi gửi '%s': %s"):format(item.Name, err)) end
+            local ok, err = pcall(function()
+                Humanoid:EquipTool(item)
+                task.wait(0.25)
+                local equipped = character:FindFirstChildOfClass("Tool")
+                if equipped then
+                    giftRemote:FireServer({{Item = equipped, ToGift = receiverName}})
+                    totalSent += 1
+                    print(("✅ Sent '%s' (Dmg %d) → %s"):format(item.Name, dmg, receiverName))
+                end
+            end)
+            if not ok then warn(("❌ Lỗi gửi '%s': %s"):format(item.Name, err)) end
 
-			for _, t in ipairs(character:GetChildren()) do
-				if t:IsA("Tool") then t.Parent = Backpack end
-			end
+            for _, t in ipairs(character:GetChildren()) do
+                if t:IsA("Tool") then t.Parent = Backpack end
+            end
 
-			task.wait(giftCooldown)
-		end
-	end
-	print(("✨ Tổng cộng đã gửi %d pets."):format(totalSent))
+            task.wait(giftCooldown)
+        end
+    end
+    print(("✨ Tổng cộng đã gửi %d pets."):format(totalSent))
 end
 
--- 🧹 Xoá pets khỏi plot
+-- 🧹 Xoá pet khỏi plots
 local function removeAllPetsFromPlots()
-	if not removeRemote then return warn("⚠️ removeRemote nil") end
-	local plots = workspace:FindFirstChild("Plots")
-	if not plots then return warn("❌ Không tìm thấy workspace.Plots!") end
-	local plot = plots:FindFirstChild("1")
-	if not plot then return warn("❌ Không tìm thấy plot '1' trong Plots!") end
-	local hitboxes = plot:FindFirstChild("Hitboxes")
-	if not hitboxes then return warn("❌ Không tìm thấy 'Hitboxes' trong plot 1!") end
+    local plots = workspace:FindFirstChild("Plots")
+    if not plots then return warn("❌ Không tìm thấy workspace.Plots!") end
+    local plot = plots:FindFirstChild("1")
+    if not plot then return warn("❌ Không tìm thấy plot '1'!") end
+    local hitboxes = plot:FindFirstChild("Hitboxes")
+    if not hitboxes then return warn("❌ Không tìm thấy Hitboxes!") end
 
-	local count = 0
-	for _, obj in ipairs(hitboxes:GetChildren()) do
-		local uuid = obj.Name
-		if uuid and uuid ~= "" then
-			local ok, err = pcall(function() removeRemote:FireServer(uuid) end)
-			if ok then count += 1 end
-			task.wait(0.1)
-		end
-	end
-	print(("✨ Đã xoá tổng cộng %d pets trong Hitboxes."):format(count))
+    print("🧹 Đang xoá pets trong Plot 1...")
+    local count = 0
+    for _, obj in ipairs(hitboxes:GetChildren()) do
+        local uuid = obj:GetAttribute("UUID")
+        if uuid then
+            pcall(function() removeRemote:FireServer(uuid) end)
+            count += 1
+        end
+        task.wait(0.25)
+    end
+    print(("✨ Đã xoá %d pets khỏi Plot."):format(count))
 end
 
--- 💰 Bán khi full
+-- 💰 Bán items khi đầy
 local function SellMaxInventory()
-	local hud = LocalPlayer.PlayerGui:FindFirstChild("HUD")
-	if not hud then return false end
-	local maxInvObj = hud:FindFirstChild("MaxInv")
-	if not maxInvObj then return false end
+    local hud = LocalPlayer.PlayerGui:FindFirstChild("HUD")
+    if not hud then return false end
 
-	local maxInv = tonumber(maxInvObj.Value or maxInvObj.Text) or 250
-	local itemCount = #Backpack:GetChildren()
-	if itemCount < maxInv then return false end
+    local maxInvObj = hud:FindFirstChild("MaxInv")
+    if not maxInvObj then return false end
 
-	print(("Full %d/%d - Start Sell!"):format(itemCount, maxInv))
-	ItemSell:FireServer()
-	task.wait(1)
-	print("✅ Đã xác nhận bán items.")
-	return true
+    local maxInv = tonumber(maxInvObj.Value or maxInvObj.Text) or 250
+    local itemCount = #Backpack:GetChildren()
+    if itemCount < maxInv then return false end
+
+    print(("Full %d/%d - Start Sell!"):format(itemCount, maxInv))
+    ItemSell:FireServer()
+    task.wait(0.5)
+
+    local popup = hud:FindFirstChild("PopUp")
+    if not popup or not popup.Visible then return false end
+
+    local yesBtn = popup:FindFirstChild("Content")
+        and popup.Content:FindFirstChild("Buttons")
+        and popup.Content.Buttons:FindFirstChild("Yes")
+        and popup.Content.Buttons.Yes:FindFirstChild("TextButton")
+    if not yesBtn then return false end
+
+    pcall(function()
+        for _, conn in pairs(getconnections(yesBtn.Activated)) do conn:Fire() end
+        for _, conn in pairs(getconnections(yesBtn.MouseButton1Click)) do conn:Fire() end
+    end)
+
+    print("✅ Đã xác nhận bán items.")
+    task.wait(0.5)
+    return true
 end
 
--- 🧠 Quản lý kho
+-- 🧠 Kiểm tra inventory
 local function CheckAndManageInventory()
-	if not Backpack then return end
-
-	local hud = LocalPlayer.PlayerGui:FindFirstChild("HUD")
-	if not hud then return end
-	local maxInvObj = hud:FindFirstChild("MaxInv")
-	if not maxInvObj then return end
-
-	local maxInv = tonumber(maxInvObj.Value or maxInvObj.Text) or 250
-	local itemCount = #Backpack:GetChildren()
-
-	if itemCount >= maxInv then
-		print("⚠️ Full Inventory → Bán + Xoá pets plot...")
-		pcall(SellMaxInventory)
-		task.wait(2)
-		pcall(removeAllPetsFromPlots)
-	else
-		print("📦 Inventory OK → Dọn pets khỏi plots...")
-		pcall(removeAllPetsFromPlots)
-	end
+    if not Backpack then
+        warn("Backpack does not exist")
+        return
+    end
+    
+    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return end
+    
+    local hud = playerGui:FindFirstChild("HUD")
+    if not hud then return end
+    
+    local maxInvObj = hud:FindFirstChild("MaxInv")
+    if not maxInvObj then return end
+    
+    local maxInventory = 250
+    if maxInvObj:IsA("IntValue") or maxInvObj:IsA("NumberValue") then
+        maxInventory = maxInvObj.Value
+    elseif maxInvObj:IsA("TextLabel") or maxInvObj:IsA("TextBox") then
+        maxInventory = tonumber(maxInvObj.Text) or 250
+    end
+    
+    local itemCount = #Backpack:GetChildren()
+    
+    if itemCount >= maxInventory then
+        print("  → quest 1: Ban items...")
+        pcall(SellMaxInventory)
+        task.wait(3)
+        print("  → quest 2: Xoa pets khoi plots...")
+        pcall(removeAllPetsFromPlots)
+    else
+        print("Inventory OK, xoa pets khoi plots...")
+        pcall(removeAllPetsFromPlots)
+    end
 end
 
--- 🔁 Loop chính
+-- 🔁 Vòng lặp chính
 task.spawn(function()
-	task.wait(2)
-	while true do
-		pcall(CheckAndManageInventory)
-		task.wait(3) -- delay nhẹ tránh spam
+    task.wait(2)
+    while true do
+        pcall(CheckAndManageInventory)
+        task.wait(1)
 
-		if _G.CF.autoSendGift then
-			print("\n📦 Gửi gifts...")
-			pcall(ToGift)
-			task.wait(3)
-		end
-	end
+        if _G.CF.autoFavorite then
+            print("\n⭐ Quét và favorite pets...")
+            pcall(scanAndFavoritePets)
+            task.wait(2)
+        end
+
+        if _G.CF.autoSendGift then
+            print("\n📦 Gửi gifts...")
+            pcall(ToGift)
+            task.wait(3)
+        end
+    end
 end)
 
 print("✅ Script loaded! Auto loops started.")
