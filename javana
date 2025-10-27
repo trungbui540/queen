@@ -98,52 +98,35 @@ local function ToGift()
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     if not Humanoid then
-        warn("Humanoid not found!")
+        warn("Không tìm thấy Humanoid!")
         return
     end
 
     local myName = LocalPlayer.Name
     local totalSent = 0
-    local mode = string.lower(_G.CF.Mode or "list")
+    local mode = string.lower(_G.CF.Mode or "list")  -- "list" hoặc "damage"
     local minDamage = _G.CF.MinDamage or 0
     local maxDamage = _G.CF.MaxDamage or math.huge
     local giftCooldown = _G.CF.giftCooldown or 2
     local listPetGift = _G.CF.ListPetGift or {}
 
     print("👤 Người gửi:", myName)
-    if mode == "damage" then
-        print(("🔧 Chế độ: GỬI THEO DAMAGE (%d–%d)"):format(minDamage, maxDamage))
-    else
-        print(("📜 Chế độ: GỬI THEO DANH SÁCH TÊN (%d pet trong danh sách)"):format(#listPetGift))
+    local senderIsReceiver = table.find(receivers, myName) ~= nil
+    print("📋 Sender nằm trong Receivers:", senderIsReceiver)
+
+    -- Nếu người gửi nằm trong danh sách Receivers => không gửi
+    if senderIsReceiver then
+        print("🚫 Người gửi nằm trong danh sách Receivers, không thực hiện gift.")
+        return
     end
 
-    local senderIsReceiver = table.find(receivers, myName) and true or false
-    print(("🔎 Tôi có nằm trong Receivers không? %s"):format(tostring(senderIsReceiver)))
+    print("✅ Người gửi hợp lệ (ngoài Receivers), bắt đầu gửi...")
 
-    -- Duyệt qua danh sách RECEIVERS (chỉ gửi đến những người trong receivers)
     for _, receiverName in ipairs(receivers) do
         if receiverName == myName then
-            print("⏩ Bỏ qua vì là chính mình:", receiverName)
             continue
         end
 
-        local targetIsReceiver = table.find(receivers, receiverName) and true or false
-
-        -- Debug: in ra trạng thái để bạn kiểm tra
-        print(("➡ Kiểm tra target '%s' : targetIsReceiver=%s"):format(receiverName, tostring(targetIsReceiver)))
-
-        -- CHÍNH: chỉ gửi khi người gửi KHÔNG nằm trong Receivers, nhưng người nhận NẰM trong Receivers
-        if senderIsReceiver then
-            print(("🚫 Người gửi (%s) nằm trong Receivers => không gửi cho ai trong Receivers (bỏ qua %s)"):format(myName, receiverName))
-            continue
-        end
-
-        if not targetIsReceiver then
-            print(("🚫 Người nhận %s không nằm trong Receivers => bỏ qua"):format(receiverName))
-            continue
-        end
-
-        -- Người nhận hợp lệ (receiver nằm trong list và sender không nằm trong list)
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
             warn("⚠️ Người nhận OFFLINE:", receiverName)
@@ -157,9 +140,8 @@ local function ToGift()
             if not item:IsA("Tool") then continue end
             if string.find(item.Name:lower(), "seed") then continue end
 
-            -- Lấy damage (nếu có)
             local damageValue = 0
-            if item:GetAttribute and item:GetAttribute("Damage") then
+            if item:GetAttribute("Damage") then
                 damageValue = tonumber(item:GetAttribute("Damage")) or 0
             else
                 local info = item:FindFirstChild("Info") or item:FindFirstChild("Stats") or item:FindFirstChild("Configuration")
@@ -168,7 +150,7 @@ local function ToGift()
                 end
             end
 
-            -- Kiểm tra pet hợp lệ theo Mode / List
+            -- Kiểm tra pet hợp lệ
             local isValid = false
             if mode == "damage" then
                 if damageValue >= minDamage and damageValue <= maxDamage then
@@ -190,19 +172,17 @@ local function ToGift()
                 continue
             end
 
-            -- Thực hiện equip + gửi
+            -- Thực hiện gửi
             local ok, err = pcall(function()
                 Humanoid:EquipTool(item)
-                task.wait(0.3) -- tăng delay để đảm bảo equip
+                task.wait(0.25)
                 local equipped = character:FindFirstChildOfClass("Tool")
-                if equipped and equipped.Name == item.Name then
+                if equipped then
                     local args = {{Item = equipped, ToGift = receiverName}}
                     giftRemote:FireServer(unpack(args))
-                    totalSent = totalSent + 1
-                    sentCount = sentCount + 1
+                    totalSent += 1
+                    sentCount += 1
                     print(("✅ Gửi '%s' (Damage: %d) → %s"):format(item.Name, damageValue, receiverName))
-                else
-                    warn(("⚠️ Không equip được '%s' trước khi gửi"):format(item.Name))
                 end
             end)
 
@@ -210,7 +190,7 @@ local function ToGift()
                 warn(("❌ Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
             end
 
-            -- Ép gỡ tool về Backpack (phòng trường hợp server chưa remove)
+            -- Reset tool về Backpack
             task.wait(0.2)
             for _, tool in ipairs(character:GetChildren()) do
                 if tool:IsA("Tool") then
@@ -218,11 +198,11 @@ local function ToGift()
                 end
             end
 
-            -- Chờ tool biến mất khỏi character
+            -- Chờ tool tháo ra
             local timeout = 0
             repeat
                 task.wait(0.1)
-                timeout = timeout + 0.1
+                timeout += 0.1
             until not character:FindFirstChildOfClass("Tool") or timeout > 3
 
             task.wait(giftCooldown)
