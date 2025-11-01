@@ -206,21 +206,63 @@ local function ToGift()
 end
 
 
+local function getUUID(obj)
+    local uuid = obj:GetAttribute("UUID")
+    if uuid then return uuid end
+    
+    for _, v in pairs(obj:GetAttributes()) do
+        if type(v) == "string" and v:match("%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x") then
+            return v
+        end
+    end
+end
+
+local function isInList(name, list)
+    for _, item in pairs(list) do
+        if name:lower():find(item:lower()) then
+            return true
+        end
+    end
+    return false
+end
+
 local function removeAllPetsFromPlots()
+    local workspace = game:GetService("Workspace")
+    local plots = workspace:FindFirstChild("Plots")
+    
+    if not plots then
+        warn("Not Found Plots")
+        return
+    end
+    
     local count = 0
-    for _, plot in pairs(workspace.Plots:GetChildren()) do
-        local hitboxes = plot:FindFirstChild("Hitboxes")
-        if hitboxes then
-            for _, pet in pairs(hitboxes:GetChildren()) do
-                task.wait(0.25) -- let game finish any animations
-                pcall(function()
-                    removeRemote:FireServer(pet.Name)
-                end)
-                count = count + 1
-                task.wait(0.2)
+    
+    for _, plot in pairs(plots:GetChildren()) do
+        local plants = plot:FindFirstChild("Plants")
+        if plants then
+            for _, plant in pairs(plants:GetChildren()) do
+                if isInList(plant.Name, _G.CF.ListPetGift) then
+                    local uuid = getUUID(plant)
+                    
+                    if uuid then
+                        local success = pcall(function()
+                            removeRemote:FireServer(uuid)
+                        end)
+                        
+                        if success then
+                            count = count + 1
+                            print("delete ", plant.Name)
+                            task.wait(0.3)
+                        else
+                            warn("erro delete ", plant.Name)
+                        end
+                    end
+                end
             end
         end
     end
+    
+    print(("Delete %d pets From plots"):format(count))
 end
 
 
