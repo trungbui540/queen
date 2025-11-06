@@ -84,12 +84,20 @@ task.spawn(function()
     end
 end)
 
--- 🎁 Gửi quà
+local isGifting = false
+
 local function ToGift()
+    if isGifting then
+        warn("⚠️ Đang gửi gift, bỏ qua lần gọi trùng!")
+        return
+    end
+    isGifting = true
+
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     if not Humanoid then
         warn("Không tìm thấy Humanoid!")
+        isGifting = false
         return
     end
 
@@ -100,85 +108,48 @@ local function ToGift()
     local giftCooldown = _G.CF.giftCooldown or 2
     local listPetGift = _G.CF.ListPetGift or {}
 
-    print("👤 Người gửi:", myName)
-    local senderIsReceiver = table.find(receivers, myName) ~= nil
-    print("📋 Sender nằm trong Receivers:", senderIsReceiver)
-
-    if senderIsReceiver then
-        print("🚫 Người gửi nằm trong danh sách Receivers, không thực hiện gift.")
-        return
-    end
-
-    print("✅ Người gửi hợp lệ (ngoài Receivers), bắt đầu gửi...")
+    print("🎁 Bắt đầu gửi pets...")
 
     for _, receiverName in ipairs(receivers) do
-        if receiverName == myName then
-            continue
-        end
-
+        if receiverName == myName then continue end
         local receiver = Players:FindFirstChild(receiverName)
         if not receiver then
             warn("⚠️ Người nhận OFFLINE:", receiverName)
             continue
         end
 
-        print(("\n🎁 Gửi cho: %s"):format(receiverName))
         local sentCount = 0
-
         for _, item in ipairs(Backpack:GetChildren()) do
             if not item:IsA("Tool") then continue end
             if string.find(item.Name:lower(), "seed") then continue end
 
-            local damageValue = 0
-            if item:GetAttribute("Damage") then
-                damageValue = tonumber(item:GetAttribute("Damage")) or 0
-            else
-                local info = item:FindFirstChild("Info") or item:FindFirstChild("Stats") or item:FindFirstChild("Configuration")
-                if info and info:FindFirstChild("Damage") then
-                    damageValue = tonumber(info.Damage.Value) or 0
-                end
-            end
-
-            local isInList = false
-            for _, name in ipairs(listPetGift) do
-                if string.find(item.Name:lower(), name:lower()) then
-                    isInList = true
+            -- Check ListPetGift
+            local matchList = false
+            for _, pet in ipairs(listPetGift) do
+                if string.find(item.Name:lower(), pet:lower()) then
+                    matchList = true
                     break
                 end
             end
 
-            local isInDamageRange = (damageValue >= minDamage and damageValue <= maxDamage)
-            local isValid = (isInList or isInDamageRange)
-
-            if not isValid then
-                continue
-            end
+            if not matchList then continue end
 
             local ok, err = pcall(function()
                 Humanoid:EquipTool(item)
-                task.wait(0.25)
-
+                task.wait(0.3)
                 local equipped = character:FindFirstChildOfClass("Tool")
                 if equipped then
-                    local args = {{Item = equipped, ToGift = receiverName}}
-                    giftRemote:FireServer(unpack(args))
+                    giftRemote:FireServer({Item = equipped, ToGift = receiverName})
                     totalSent += 1
                     sentCount += 1
-                    print(("✅ Đã gửi '%s' (Damage: %d) → %s"):format(item.Name, damageValue, receiverName))
+                    print(("✅ Gửi %s → %s"):format(item.Name, receiverName))
                 end
             end)
-
             if not ok then
-                warn(("❌ Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
+                warn("❌ Lỗi gift:", err)
             end
 
-            task.wait(0.2)
-            for _, tool in ipairs(character:GetChildren()) do
-                if tool:IsA("Tool") then
-                    tool.Parent = Backpack
-                end
-            end
-
+            -- Chờ trả tool về backpack
             local timeout = 0
             repeat
                 task.wait(0.1)
@@ -189,9 +160,11 @@ local function ToGift()
         end
 
         print(("🎯 Đã gửi %d pets cho %s"):format(sentCount, receiverName))
+        task.wait(1)
     end
 
-    print(("\n✨ Tổng cộng đã gửi: %d pets.\n"):format(totalSent))
+    print(("✨ Tổng cộng gửi xong %d pets."):format(totalSent))
+    isGifting = false
 end
 
 local function getUUID(obj)
@@ -548,9 +521,13 @@ task.spawn(function()
 
         -- 3️⃣ Auto send gift (nếu bật)
         if _G.CF and _G.CF.autoSendGift then
-            print("\n📦 Gửi gifts...")
-            pcall(ToGift)
+            if not isGifting then
+               pcall(ToGift)
+            else
+            print("⏳ Đang gửi gift, bỏ qua vòng này.")
+            end
             task.wait(3)
+
             
             -- 4️⃣ ✨ KIỂM TRA CHANGEACCCUSTOM SAU KHI GIFT
             if _G.CF and _G.CF.changeAccCustom then
@@ -562,5 +539,3 @@ task.spawn(function()
         task.wait(2)
     end
 end)
-
-
