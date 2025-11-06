@@ -86,7 +86,6 @@ end)
 
 -- 🎁 Gửi quà
 local function ToGift()
-    -- 🧩 Lấy thông tin cấu hình
     local receivers = type(_G.CF.Receivers) == "table" and _G.CF.Receivers or {_G.CF.Receivers}
     local Humanoid = character:FindFirstChildOfClass("Humanoid")
     if not Humanoid then
@@ -105,7 +104,6 @@ local function ToGift()
     local senderIsReceiver = table.find(receivers, myName) ~= nil
     print("📋 Sender nằm trong Receivers:", senderIsReceiver)
 
-    -- 🚫 Không gửi nếu người gửi nằm trong danh sách nhận
     if senderIsReceiver then
         print("🚫 Người gửi nằm trong danh sách Receivers, không thực hiện gift.")
         return
@@ -113,7 +111,6 @@ local function ToGift()
 
     print("✅ Người gửi hợp lệ (ngoài Receivers), bắt đầu gửi...")
 
-    -- 🔁 Duyệt từng người nhận
     for _, receiverName in ipairs(receivers) do
         if receiverName == myName then
             continue
@@ -128,12 +125,10 @@ local function ToGift()
         print(("\n🎁 Gửi cho: %s"):format(receiverName))
         local sentCount = 0
 
-        -- 🔍 Duyệt pet trong Backpack
         for _, item in ipairs(Backpack:GetChildren()) do
             if not item:IsA("Tool") then continue end
             if string.find(item.Name:lower(), "seed") then continue end
 
-            -- Lấy damage
             local damageValue = 0
             if item:GetAttribute("Damage") then
                 damageValue = tonumber(item:GetAttribute("Damage")) or 0
@@ -144,7 +139,6 @@ local function ToGift()
                 end
             end
 
-            -- 🎯 Kiểm tra hợp lệ (vừa Damage vừa List)
             local isInList = false
             for _, name in ipairs(listPetGift) do
                 if string.find(item.Name:lower(), name:lower()) then
@@ -157,11 +151,9 @@ local function ToGift()
             local isValid = (isInList or isInDamageRange)
 
             if not isValid then
-                print(("⚙️ '%s' (Damage %d) không hợp lệ."):format(item.Name, damageValue))
                 continue
             end
 
-            -- 📨 Tiến hành gửi
             local ok, err = pcall(function()
                 Humanoid:EquipTool(item)
                 task.wait(0.25)
@@ -180,7 +172,6 @@ local function ToGift()
                 warn(("❌ Lỗi khi gửi '%s': %s"):format(item.Name, tostring(err)))
             end
 
-            -- 🔄 Đưa tool về Backpack sau khi gửi
             task.wait(0.2)
             for _, tool in ipairs(character:GetChildren()) do
                 if tool:IsA("Tool") then
@@ -188,14 +179,12 @@ local function ToGift()
                 end
             end
 
-            -- ⏳ Chờ tool tháo ra hoàn toàn
             local timeout = 0
             repeat
                 task.wait(0.1)
                 timeout += 0.1
             until not character:FindFirstChildOfClass("Tool") or timeout > 3
 
-            -- ⌛ Chờ cooldown giữa các lượt gift
             task.wait(giftCooldown)
         end
 
@@ -204,7 +193,6 @@ local function ToGift()
 
     print(("\n✨ Tổng cộng đã gửi: %d pets.\n"):format(totalSent))
 end
-
 
 local function getUUID(obj)
     local uuid = obj:GetAttribute("UUID")
@@ -264,7 +252,6 @@ local function removeAllPetsFromPlots()
     
     print(("Delete %d pets From plots"):format(count))
 end
-
 
 local function SellMaxInventory()
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
@@ -348,7 +335,6 @@ local function SellMaxInventory()
     return true
 end
 
--- 🧠 Kiểm tra inventory
 local function CheckAndManageInventory()
     if not Backpack then
         warn("Backpack does not exist")
@@ -385,26 +371,196 @@ local function CheckAndManageInventory()
     end
 end
 
--- 🔁 Vòng lặp chính
+-- ═══════════════════════════════════════════════════════════════
+-- 🔥 CHANGEACCCUSTOM - LOGIC HOÀN CHỈNH
+-- ═══════════════════════════════════════════════════════════════
+
+-- 📊 Biến lưu trạng thái
+local changeAccTriggered = false
+local lastCheckTime = 0
+local CHECK_INTERVAL = 5 -- Kiểm tra mỗi 5 giây
+
+-- 🧩 Hàm kiểm tra pet còn lại trong ListPetGift
+local function checkRemainingPetsInList()
+    if not Backpack then 
+        warn("⚠️ Backpack không tồn tại")
+        return -1 
+    end
+    
+    local listPetGift = _G.CF.ListPetGift or {}
+    if #listPetGift == 0 then
+        return -1 -- Không có list để check
+    end
+    
+    local remaining = 0
+    local foundPets = {}
+    
+    -- Quét toàn bộ Backpack
+    for _, item in pairs(Backpack:GetChildren()) do
+        if not item:IsA("Tool") then continue end
+        if string.find(item.Name:lower(), "seed") then continue end
+        
+        -- Kiểm tra xem pet có trong ListPetGift không
+        for _, petName in ipairs(listPetGift) do
+            if string.find(item.Name:lower(), petName:lower()) then
+                remaining += 1
+                table.insert(foundPets, item.Name)
+                break
+            end
+        end
+    end
+    
+    return remaining, foundPets
+end
+
+-- 📝 Hàm ghi file trigger để ChangeAcc executor đọc
+local function writeTriggerFile()
+    if changeAccTriggered then 
+        return false -- Đã trigger rồi, không ghi lại
+    end
+    
+    local fileName = tostring(LocalPlayer.Name) .. ".txt"
+    local content = "Yummytool" -- Nội dung file trigger
+    
+    local success = pcall(function()
+        writefile(fileName, content)
+    end)
+    
+    if success then
+        changeAccTriggered = true
+        print("═══════════════════════════════════════════════════")
+        print("🔄 [CHANGEACC TRIGGER] File đã được tạo!")
+        print("📁 File:", fileName)
+        print("💾 Content:", content)
+        print("⏰ Thời gian:", os.date("%H:%M:%S"))
+        print("═══════════════════════════════════════════════════")
+        return true
+    else
+        warn("❌ Không thể ghi file trigger:", fileName)
+        return false
+    end
+end
+
+-- 🎯 Hàm chính: Kiểm tra và trigger đổi acc
+local function checkAndTriggerChangeAcc()
+    if not _G.CF or not _G.CF.changeAccCustom then 
+        return 
+    end
+    
+    if changeAccTriggered then 
+        return -- Đã trigger rồi, không check nữa
+    end
+    
+    -- Throttle: Không check quá nhanh
+    local currentTime = tick()
+    if currentTime - lastCheckTime < CHECK_INTERVAL then
+        return
+    end
+    lastCheckTime = currentTime
+    
+    -- Kiểm tra số lượng pet còn lại
+    local remaining, foundPets = checkRemainingPetsInList()
+    
+    if remaining == -1 then
+        return -- ListPetGift không tồn tại hoặc rỗng
+    end
+    
+    if remaining > 0 then
+        print(("🐾 [ChangeAccCustom] Còn %d pets trong ListPetGift"):format(remaining))
+        if foundPets and #foundPets > 0 then
+            print("   └─ Pets:", table.concat(foundPets, ", "))
+        end
+        return
+    end
+    
+    -- ✅ Hết pet trong list → Trigger đổi acc
+    print("\n╔═══════════════════════════════════════════════════╗")
+    print("║  🎉 ĐÃ GIFT HẾT PET TRONG LISTPETGIFT!           ║")
+    print("╚═══════════════════════════════════════════════════╝")
+    
+    writeTriggerFile()
+end
+
+-- 🔄 Hàm reset trạng thái (dùng khi cần test lại)
+local function resetChangeAccStatus()
+    changeAccTriggered = false
+    lastCheckTime = 0
+    print("🔃 Reset trạng thái ChangeAccCustom")
+    
+    local fileName = tostring(LocalPlayer.Name) .. ".txt"
+    if isfile(fileName) then
+        delfile(fileName)
+        print("🗑️ Đã xóa file trigger cũ:", fileName)
+    end
+end
+
+-- 📊 Hàm debug: Hiển thị thông tin chi tiết
+local function debugChangeAccStatus()
+    print("\n╔═══════════════════════════════════════════════════╗")
+    print("║          🔍 DEBUG CHANGEACCCUSTOM STATUS          ║")
+    print("╚═══════════════════════════════════════════════════╝")
+    print("⚙️ Cấu hình:")
+    print("   • changeAccCustom:", _G.CF and _G.CF.changeAccCustom or false)
+    print("   • ListPetGift:", _G.CF and #(_G.CF.ListPetGift or {}) or 0, "items")
+    
+    local remaining, foundPets = checkRemainingPetsInList()
+    print("\n📊 Trạng thái:")
+    print("   • Pets còn lại:", remaining == -1 and "N/A" or remaining)
+    print("   • Đã trigger:", changeAccTriggered)
+    print("   • Last check:", lastCheckTime == 0 and "Chưa check" or os.date("%H:%M:%S", lastCheckTime))
+    
+    local fileName = tostring(LocalPlayer.Name) .. ".txt"
+    print("   • File trigger:", isfile(fileName) and "✅ Tồn tại" or "❌ Không tồn tại")
+    
+    if foundPets and #foundPets > 0 then
+        print("\n🐾 Pets tìm thấy:")
+        for i, name in ipairs(foundPets) do
+            print(("   %d. %s"):format(i, name))
+        end
+    end
+    print("═══════════════════════════════════════════════════\n")
+end
+
+-- 🌐 Export global functions (để gọi từ console)
+_G.resetChangeAcc = resetChangeAccStatus
+_G.debugChangeAcc = debugChangeAccStatus
+
+-- ═══════════════════════════════════════════════════════════════
+-- 🔁 VÒNG LẶP CHÍNH - TÍCH HỢP CHANGEACCCUSTOM
+-- ═══════════════════════════════════════════════════════════════
+
 task.spawn(function()
     task.wait(2)
+    print("✅ Script loaded! Auto loops started.")
+    print("🔧 ChangeAccCustom:", _G.CF and _G.CF.changeAccCustom or false)
+    
     while true do
+        -- 1️⃣ Quản lý inventory
         pcall(CheckAndManageInventory)
         task.wait(1)
 
-        if _G.CF.autoFavorite then
+        -- 2️⃣ Auto favorite (nếu bật)
+        if _G.CF and _G.CF.autoFavorite then
             print("\n⭐ Quét và favorite pets...")
             pcall(scanAndFavoritePets)
             task.wait(2)
         end
 
-        if _G.CF.autoSendGift then
+        -- 3️⃣ Auto send gift (nếu bật)
+        if _G.CF and _G.CF.autoSendGift then
             print("\n📦 Gửi gifts...")
             pcall(ToGift)
             task.wait(3)
+            
+            -- 4️⃣ ✨ KIỂM TRA CHANGEACCCUSTOM SAU KHI GIFT
+            if _G.CF and _G.CF.changeAccCustom then
+                pcall(checkAndTriggerChangeAcc)
+            end
         end
+        
+        -- 5️⃣ Delay trước cycle tiếp theo
+        task.wait(2)
     end
 end)
 
-print("✅ Script loaded! Auto loops started.")
 
