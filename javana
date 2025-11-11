@@ -88,7 +88,7 @@ local isGifting = false
 
 local function ToGift()
     if isGifting then
-        warn("⚠️ Đang gửi gift, bỏ qua lần gọi trùng!")
+        warn(" Đang gửi gift, bỏ qua lần gọi trùng!")
         return
     end
     isGifting = true
@@ -107,8 +107,21 @@ local function ToGift()
     local maxDamage = _G.CF.MaxDamage or math.huge
     local giftCooldown = _G.CF.giftCooldown or 2
     local listPetGift = _G.CF.ListPetGift or {}
+    
+    -- ✅ KIỂM TRA CHẾ ĐỘ LỌC
+    local useListFilter = #listPetGift > 0
+    local useDamageFilter = not (minDamage == 0 and maxDamage == 0)
 
-    print("🎁 Bắt đầu gửi pets...")
+    print(" Bắt đầu gửi pets...")
+    if useListFilter and useDamageFilter then
+        print(" Chế độ: Lọc theo ListPetGift + Damage (" .. minDamage .. "-" .. maxDamage .. ")")
+    elseif useListFilter then
+        print(" Chế độ: Lọc chỉ theo ListPetGift (bỏ qua damage)")
+    elseif useDamageFilter then
+        print(" Chế độ: Lọc chỉ theo Damage (" .. minDamage .. "-" .. maxDamage .. ")")
+    else
+        print(" Chế độ: Gift TẤT CẢ pet (không lọc)")
+    end
 
     for _, receiverName in ipairs(receivers) do
         if receiverName == myName then continue end
@@ -123,16 +136,41 @@ local function ToGift()
             if not item:IsA("Tool") then continue end
             if string.find(item.Name:lower(), "seed") then continue end
 
-            -- Check ListPetGift
-            local matchList = false
-            for _, pet in ipairs(listPetGift) do
-                if string.find(item.Name:lower(), pet:lower()) then
-                    matchList = true
-                    break
+            -- ✅ KIỂM TRA LISTPETGIFT (nếu có)
+            if useListFilter then
+                local matchList = false
+                for _, pet in ipairs(listPetGift) do
+                    if string.find(item.Name:lower(), pet:lower()) then
+                        matchList = true
+                        break
+                    end
                 end
+                if not matchList then continue end
             end
 
-            if not matchList then continue end
+            -- ✅ LẤY DAMAGE (chỉ khi cần)
+            local petDamage = 0
+            if useDamageFilter then
+                local damageValue = item:FindFirstChild("Damage")
+                
+                if damageValue then
+                    if damageValue:IsA("IntValue") or damageValue:IsA("NumberValue") then
+                        petDamage = damageValue.Value
+                    elseif damageValue:IsA("StringValue") then
+                        petDamage = tonumber(damageValue.Value) or 0
+                    end
+                else
+                    petDamage = item:GetAttribute("Damage") or 0
+                end
+
+                -- ✅ KIỂM TRA DAMAGE RANGE
+                if petDamage < minDamage or petDamage > maxDamage then
+                    print(("⏭️ Bỏ qua %s (Damage: %d, yêu cầu: %d-%d)"):format(
+                        item.Name, petDamage, minDamage, maxDamage
+                    ))
+                    continue
+                end
+            end
 
             local ok, err = pcall(function()
                 Humanoid:EquipTool(item)
@@ -142,14 +180,17 @@ local function ToGift()
                     giftRemote:FireServer({Item = equipped, ToGift = receiverName})
                     totalSent += 1
                     sentCount += 1
-                    print(("✅ Gửi %s → %s"):format(item.Name, receiverName))
+                    if useDamageFilter then
+                        print(("✅ Gửi %s (DMG: %d) → %s"):format(item.Name, petDamage, receiverName))
+                    else
+                        print(("✅ Gửi %s → %s"):format(item.Name, receiverName))
+                    end
                 end
             end)
             if not ok then
                 warn("❌ Lỗi gift:", err)
             end
 
-            -- Chờ trả tool về backpack
             local timeout = 0
             repeat
                 task.wait(0.1)
