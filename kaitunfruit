@@ -192,9 +192,6 @@ local OriginalCFrame = CFrame.new(
 	0.911521077
 )
 
--- // Unused code
--- local FruitCounted = isfile("fruitcounted.bin") and tonumber(readfile("fruitcounted.bin")) or 0
-
 local NewCFrame = OriginalCFrame * CFrame.new(0, 18, 0)
 
 local function serializeCFrame(cf)
@@ -207,7 +204,6 @@ local function deserializeCFrame(data)
 	end
 	return nil
 end
-
 
 local function DropFruit()
 	local char = LocalPlayer.Character
@@ -291,6 +287,7 @@ local function buyrandomfruit()
 	return result
 end
 
+-- NEW: Drop fruit position table
 local function dropfruitpoint()
 	return {
 		["Quake"] = Vector3.new(-831.09, 73.27, 49.26),
@@ -298,7 +295,7 @@ local function dropfruitpoint()
 		["Love"] = Vector3.new(-900.65, 73.27, -22.58),
 		["Creation"] = Vector3.new(-935.43, 73.27, -58.50),
 		["Spider"] = Vector3.new(-970.21, 73.27, -94.42),
-		["Sound"] = Vector3.new(-1005.00, 73.27, -130.34),  -- FIX: "Soud" -> "Sound"
+		["Sound"] = Vector3.new(-1005.00, 73.27, -130.34), 
 		["Phoenix"] = Vector3.new(-1039.78, 73.27, -166.26),
 		["Portal"] = Vector3.new(-722.66, 73.27, -47.16),
 		["Lightning"] = Vector3.new(-757.49, 73.27, -83.03),
@@ -307,7 +304,7 @@ local function dropfruitpoint()
 		["Gravity"] = Vector3.new(-861.98, 73.27, -190.65),
 		["Mammoth"] = Vector3.new(-896.81, 73.27, -226.52),
 		["T-Rex"] = Vector3.new(-931.64, 73.27, -262.39),
-		["Dough"] = Vector3.new(-962.18, 73.27, -288.00),  -- FIX: "Duogh" -> "Dough"
+		["Dough"] = Vector3.new(-962.18, 73.27, -288.00), 
 		["Shadow"] = Vector3.new(-982.53, 73.27, -333.67),
 		["Venom"] = Vector3.new(-1002.88, 73.27, -379.34),
 		["Control"] = Vector3.new(-1023.23, 73.27, -425.01),
@@ -321,9 +318,8 @@ local function dropfruitpoint()
 	}
 end
 
- 
+-- NEW: Get current fruit name
 local function GetCurrentFruitName()
-	-- FIX: Changed 'player' to 'LocalPlayer'
 	local char = LocalPlayer.Character
 	local back = LocalPlayer.Backpack
 	
@@ -342,59 +338,29 @@ local function GetCurrentFruitName()
 	return nil
 end
 
-
-local function teleandrop()
+-- NEW: Get drop position for current fruit
+local function GetDropPosition()
 	local fruitPoints = dropfruitpoint()
 	local fruitName = GetCurrentFruitName()
-
-	if fruitName then
-		-- Remove "Fruit" suffix and trim spaces
-		local cleanName = fruitName:gsub("Fruit", ""):gsub("%s+", "")
-
-		local pos = nil
-		for name, point in pairs(fruitPoints) do
-			-- Compare case-insensitive and without spaces
-			if name:lower():gsub("%s+", "") == cleanName:lower() then
-				pos = point
-				print("✓ Khớp tên drop:", name, "→", fruitName)
-				break
-			end
-		end
-
-		if not pos then
-			print("⚠ Không tìm được vị trí cho", fruitName, "→ dùng 'fruit pulp'")
-			pos = fruitPoints["fruit pulp"]
-		end
-		
-		-- FIX: Added teleport logic
-		if pos then
-			-- Stop current velocity
-			local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
-			if bodyVel then
-				bodyVel.Velocity = Vector3.new(0, 0, 0)
-			end
-			
-			-- Teleport to drop position
-			local targetCFrame = CFrame.new(pos)
-			tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, targetCFrame, 340)
-			
-			-- Wait until arrived at position
-			while GetDistance(targetCFrame) > 10 do
-				task.wait(0.1)
-			end
-			
-			-- Drop fruit multiple times
-			task.wait(1)
-			for i = 1, 3 do
-				DropFruit()
-				task.wait(0.3)
-			end
-			
-			print("✓ Đã drop fruit tại:", pos)
-		end
-	else
-		print("⚠ Không tìm thấy fruit trong inventory")
+	
+	if not fruitName then
+		return nil
 	end
+	
+	-- Remove "Fruit" suffix and trim spaces
+	local cleanName = fruitName:gsub("Fruit", ""):gsub("%s+", "")
+	
+	-- Find matching position
+	for name, point in pairs(fruitPoints) do
+		if name:lower():gsub("%s+", "") == cleanName:lower() then
+			print("✓ Found drop position for:", fruitName, "->", name)
+			return point
+		end
+	end
+	
+	-- Use default position if not found
+	print("⚠ No position found for:", fruitName, "-> using 'fruit pulp'")
+	return fruitPoints["fruit pulp"]
 end
 
 local storage = isfile("FruitPos.json") and game:GetService("HttpService"):JSONDecode(readfile("FruitPos.json")) or {}
@@ -418,29 +384,42 @@ task.spawn(function()
 
 			local FruitInventory = getBackpackFruit()
 			if FruitInventory then
-				sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
+				-- NEW: Get drop position from table
+				local dropPos = GetDropPosition()
 				
-				-- Stop current velocity
-				local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
-				if bodyVel then
-					bodyVel.Velocity = Vector3.new(0, 0, 0)
+				if dropPos then
+					-- Use custom drop position
+					OriginalCFrame = CFrame.new(dropPos)
+				else
+					-- Fallback to storage or default
+					OriginalCFrame = storage[FruitInventory:GetAttribute("OriginalName")]
+							and deserializeCFrame(storage[FruitInventory:GetAttribute("OriginalName")])
+						or OriginalCFrame
 				end
 				
-				-- Use new teleandrop function
-				teleandrop()
+				NewCFrame = OriginalCFrame * CFrame.new(0, 15, 0)
+				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
 				
-				task.wait(1)
-				
-				-- Resume movement
-				bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
-				if bodyVel then
-					bodyVel.Velocity = Vector3.new(0, 5, 0)
+				if GetDistance(NewCFrame) < 10 then
+					sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
+					
+					local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
+					if bodyVel then
+						bodyVel.Velocity = Vector3.new(0, 0, 0)
+					end
+					
+					-- Drop fruit
+					DropFruit()
+					task.wait(1)
+					
+					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
+					if bodyVel then
+						bodyVel.Velocity = Vector3.new(0, 5, 0)
+					end
 				end
-				
 				return
 			end
 
-			-- Buy random fruit logic
 			local BuyRandomFruit = buyrandomfruit()
 			if BuyRandomFruit == true then
 				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
@@ -464,7 +443,6 @@ task.spawn(function()
 				end
 			end
 
-			-- Spawn point logic
 			if LocalPlayer.Data.LastSpawnPoint.Value ~= "Bar" then
 				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
 					LocalPlayer.Character.PrimaryPart.CFrame.X,
