@@ -401,7 +401,7 @@ task.spawn(function()
 				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
 				
 				if GetDistance(NewCFrame) < 10 then
-					sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
+					sendWebhook("thais trun cho ban mot trai cay: " .. FruitInventory:GetAttribute("OriginalName"))
 					
 					local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
 					if bodyVel then
