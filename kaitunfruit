@@ -435,7 +435,7 @@ task.spawn(function()
 						isSent = true
 						sendScheduleRequest(Minutes)
 						sendCloseRequest()
-						task.delay(5, function()
+						task.delay(3, function()
 							game:Shutdown()
 						end)
 					end
