@@ -410,7 +410,7 @@ task.spawn(function()
 					
 					-- Drop fruit
 					DropFruit()
-					task.wait(1)
+					task.wait(0.5)
 					
 					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
 					if bodyVel then
@@ -435,7 +435,7 @@ task.spawn(function()
 						isSent = true
 						sendScheduleRequest(Minutes)
 						sendCloseRequest()
-						task.delay(3, function()
+						task.delay(2, function()
 							game:Shutdown()
 						end)
 					end
