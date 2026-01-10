@@ -287,6 +287,13 @@ end
 
 local function dropfruitpoint()
 	return {
+		["Creation"] = Vector3.new(-12627.03, 331.78, -8292.40),
+		["Spider"] = Vector3.new(-12511.43, 331.78, -8287.26),
+		["Sound"] = Vector3.new(-12505.09, 331.78, -8336.10),
+		["Phoenix"] = Vector3.new(-12618.69, 331.78, -8351.24),
+		["Lightning"] = Vector3.new(-12610.70, 331.78, -8422.12),
+		["Pain"] = Vector3.new(-12492.31, 331.78, -8408.71),
+		["Blizzard"] = Vector3.new(-12483.65, 331.78, -8465.32),
 		["Buddha"] = Vector3.new(-12607.63, 331.80, -7949.89),
 		["Portal"] =  Vector3.new(-12536.69, 331.80, -8152.58),
 		["Gravity"] =  Vector3.new(-12600.42, 331.80, -7942.62),
@@ -304,6 +311,7 @@ local function dropfruitpoint()
 		["fruit pulp"] = Vector3.new(-12565.40, 331.80, -8213.76),
 	}
 end
+
 
 local function GetCurrentFruitName()
 	local char = LocalPlayer.Character
