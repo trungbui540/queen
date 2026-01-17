@@ -10,6 +10,148 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local playergui = game:GetService("Players").LocalPlayer.PlayerGui
 
+local CHECK_INTERVAL = 5
+local changeAccTriggered = false
+local lastCheckTime = 0
+local initialFruits = {}
+
+local function getAllFruitsInInventory()
+	local fruits = {}
+	
+	for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+		if item:IsA("Tool") and string.find(item.Name, "Fruit") then
+			table.insert(fruits, item.Name)
+		end
+	end
+	
+	local character = LocalPlayer.Character
+	if character then
+		for _, item in pairs(character:GetChildren()) do
+			if item:IsA("Tool") and string.find(item.Name, "Fruit") then
+				local alreadyAdded = false
+				for _, fruitName in ipairs(fruits) do
+					if fruitName == item.Name then
+						alreadyAdded = true
+						break
+					end
+				end
+				if not alreadyAdded then
+					table.insert(fruits, item.Name)
+				end
+			end
+		end
+	end
+	
+	return fruits
+end
+
+local function initializeFruitList()
+	initialFruits = getAllFruitsInInventory()
+	
+	if #initialFruits > 0 then
+		print("═══════════════════════════════════════════════════")
+		print("[FRUIT INIT] Đã phát hiện " .. #initialFruits .. " fruits trong inventory:")
+		for i, fruitName in ipairs(initialFruits) do
+			print(("   %d. %s"):format(i, fruitName))
+		end
+		print("═══════════════════════════════════════════════════")
+		sendWebhook(" Khởi động với " .. #initialFruits .. " fruits")
+	else
+		warn("[FRUIT INIT] Không tìm thấy fruit nào trong inventory!")
+	end
+	
+	return #initialFruits > 0
+end
+
+local function checkFruitTrongBack()
+	if #initialFruits == 0 then
+		local hasInit = initializeFruitList()
+		if not hasInit then
+			return -1
+		end
+	end
+	
+	local currentFruits = getAllFruitsInInventory()
+	local remaining = 0
+	local foundFruits = {}
+	
+	for _, initialFruit in ipairs(initialFruits) do
+		for _, currentFruit in ipairs(currentFruits) do
+			if currentFruit == initialFruit then
+				remaining = remaining + 1
+				table.insert(foundFruits, currentFruit)
+				break
+			end
+		end
+	end
+	
+	return remaining, foundFruits
+end
+
+local function writeTriggerFile()
+	if changeAccTriggered then 
+		return false
+	end
+	
+	local fileName = tostring(LocalPlayer.Name) .. ".txt"
+	local content = "Yummytool"
+	
+	local success = pcall(function()
+		writefile(fileName, content)
+	end)
+	
+	if success then
+		changeAccTriggered = true
+		print("═══════════════════════════════════════════════════")
+		print("[CHANGEACC] ⚠️ HẾT FRUIT - TRIGGER CHANGE ACCOUNT!")
+		print("[CHANGEACC] File:", fileName)
+		print("[CHANGEACC] Content:", content)
+		print("[CHANGEACC] Thời gian:", os.date("%H:%M:%S"))
+		print("═══════════════════════════════════════════════════")
+		sendWebhook(" HẾT FRUIT - Đã tạo file trigger change account!")
+		return true
+	else
+		warn("[CHANGEACC] fail file trigger:", fileName)
+		return false
+	end
+end
+
+local function checkAndTriggerChangeAcc()
+	if not getgenv().lugiadev.AutoChangeAcc then 
+		return 
+	end
+	
+	if changeAccTriggered then 
+		return
+	end
+	
+	local currentTime = tick()
+	if currentTime - lastCheckTime < CHECK_INTERVAL then
+		return
+	end
+	lastCheckTime = currentTime
+	
+	local remaining, foundFruits = checkFruitTrongBack()
+	
+	if remaining == -1 then
+		return
+	end
+	
+	if remaining > 0 then
+		print(("[FRUIT CHECK] Còn %d/%d fruits"):format(remaining, #initialFruits))
+		return
+	end
+	
+	local playerCount = #game.Players:GetPlayers()
+	if playerCount < 2 then
+		print(("[CHANGEACC] Chưa đủ điều kiện - Chỉ có %d người trong server (cần ≥2)"):format(playerCount))
+		return
+	end
+	
+	print(("[CHANGEACC] Server có %d người - Triggering change account..."):format(playerCount))
+	writeTriggerFile()
+end
+
 function Join(v2)
 	v2 = tostring(v2) or "Pirates"
 	v2 = string.find(v2, "Marine") and "Marines" or "Pirates"
@@ -179,11 +321,7 @@ local function GetDistance(target)
     return (pos - hrp.Position).Magnitude
 end
 
-
-local OriginalCFrame = CFrame.new(
--12549.36, 337.30, -7486.71
-)
-
+local OriginalCFrame = CFrame.new(-12549.36, 337.30, -7486.71)
 local NewCFrame = OriginalCFrame * CFrame.new(0, 18, 0)
 
 local function serializeCFrame(cf)
@@ -291,7 +429,7 @@ local function dropfruitpoint()
 		["Spider"] = Vector3.new(-12511.43, 331.78, -8287.26),
 		["Sound"] = Vector3.new(-12505.09, 331.78, -8336.10),
 		["Phoenix"] = Vector3.new(-12618.69, 331.78, -8351.24),
-		["Lightning"] = Vector3.new(-12610.70, 331.78, -8422.12),
+		["Shadow"] = Vector3.new(-12610.70, 331.78, -8422.12),
 		["Pain"] = Vector3.new(-12492.31, 331.78, -8408.71),
 		["Blizzard"] = Vector3.new(-12483.65, 331.78, -8465.32),
 		["Buddha"] = Vector3.new(-12607.63, 331.80, -7949.89),
@@ -312,7 +450,6 @@ local function dropfruitpoint()
 	}
 end
 
-
 local function GetCurrentFruitName()
 	local char = LocalPlayer.Character
 	local back = LocalPlayer.Backpack
@@ -332,7 +469,6 @@ local function GetCurrentFruitName()
 	return nil
 end
 
--- NEW: Get drop position for current fruit
 local function GetDropPosition()
 	local fruitPoints = dropfruitpoint()
 	local fruitName = GetCurrentFruitName()
@@ -345,16 +481,22 @@ local function GetDropPosition()
 	
 	for name, point in pairs(fruitPoints) do
 		if name:lower():gsub("%s+", "") == cleanName:lower() then
-			print(" Found drop position for:", fruitName, "->", name)
+			print("✓ Found drop position for:", fruitName, "->", name)
 			return point
 		end
 	end
 	
-	print(" No position found for:", fruitName, "-> using 'fruit pulp'")
+	print("No position found for:", fruitName, "-> using 'fruit pulp'")
 	return fruitPoints["fruit pulp"]
 end
 
 local storage = isfile("FruitPos.json") and game:GetService("HttpService"):JSONDecode(readfile("FruitPos.json")) or {}
+
+task.spawn(function()
+	task.wait(1)
+	initializeFruitList()
+end)
+
 task.spawn(function()
 	while task.wait() do
 		local succ, err = pcall(function()
@@ -417,18 +559,19 @@ task.spawn(function()
 				return
 			elseif type(BuyRandomFruit) == "string" then
 				local Minutes = extractMinutesFromText(BuyRandomFruit)
-            if Minutes and not isSent then
-                isSent = true
-                   sendScheduleRequest(Minutes)
-                   sendCloseRequest()
+				if Minutes and not isSent then
+					isSent = true
+					sendScheduleRequest(Minutes)
+					sendCloseRequest()
 
-                task.spawn(function()
-                    task.wait(0.5)
-                    game:Shutdown()
-         end)
-end
-	 return
-	        end
+					task.spawn(function()
+						task.wait(0.5)
+						checkAndTriggerChangeAcc()
+					end)
+				end
+				return
+			end
+			
 			if LocalPlayer.Data.LastSpawnPoint.Value ~= "Bar" then
 				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
 					LocalPlayer.Character.PrimaryPart.CFrame.X,
@@ -522,7 +665,7 @@ title.BackgroundTransparency = 1
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
-title.Text = "🍇 Fruits in Server"
+title.Text = "🍎 Fruits in Server"
 title.Parent = frame
 
 local searchButton = Instance.new("TextButton")
@@ -596,7 +739,14 @@ local function updateFruitList()
     end
     
     table.sort(filtered)
-    title.Text = "🍇 Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
+    
+    -- Hiển thị số fruit inventory / server
+    local remaining = checkFruitTrongBack()
+    if remaining ~= -1 then
+        title.Text = string.format("🍎 Fruits: %d/%d | Server: %d/%d", remaining, #initialFruits, #filtered, #fruits)
+    else
+        title.Text = "🍎 Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
+    end
     
     local y = 0
     for _, name in ipairs(filtered) do
@@ -628,3 +778,4 @@ end)
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(updateFruitList)
 updateFruitList()
+
