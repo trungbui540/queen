@@ -523,7 +523,7 @@ title.BackgroundTransparency = 1
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 16
-title.Text = " Fruits in Server "
+title.Text = "🍎 Fruits in Server"
 title.Parent = frame
 
 local searchButton = Instance.new("TextButton")
@@ -533,7 +533,7 @@ searchButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 searchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 searchButton.Font = Enum.Font.Gotham
 searchButton.TextSize = 14
-searchButton.Text = " Search Fruit"
+searchButton.Text = "🔍 Search Fruit"
 searchButton.BorderSizePixel = 0
 searchButton.Parent = frame
 
@@ -541,7 +541,7 @@ local searchCorner = Instance.new("UICorner")
 searchCorner.CornerRadius = UDim.new(0, 4)
 searchCorner.Parent = searchButton
 
-local searchBox = Instance.new("ten fruit can tim")
+local searchBox = Instance.new("TextBox")
 searchBox.Size = UDim2.new(1, -10, 0, 25)
 searchBox.Position = UDim2.new(0, 5, 0, 65)
 searchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -597,7 +597,14 @@ local function updateFruitList()
     end
     
     table.sort(filtered)
-    title.Text = " Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
+    
+    -- Hiển thị số fruit inventory / server
+    local remaining = checkFruitTrongBack()
+    if remaining ~= -1 then
+        title.Text = string.format("🍎 Fruits: %d/%d | Server: %d/%d", remaining, #initialFruits, #filtered, #fruits)
+    else
+        title.Text = "🍎 Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
+    end
     
     local y = 0
     for _, name in ipairs(filtered) do
