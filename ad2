@@ -1,0 +1,631 @@
+repeat
+	task.wait()
+until game:IsLoaded()
+
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CommF = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local playergui = game:GetService("Players").LocalPlayer.PlayerGui
+
+function Join(v2)
+	v2 = tostring(v2) or "Pirates"
+	v2 = string.find(v2, "Marine") and "Marines" or "Pirates"
+	local chooseTeam = LocalPlayer.PlayerGui["Main (minimal)"].ChooseTeam.Container[v2].Frame.TextButton.Activated
+	for _, connection in pairs(getconnections(chooseTeam)) do
+		connection.Function()
+	end
+end
+
+if not LocalPlayer.Team then
+	repeat
+		pcall(function()
+			task.wait()
+			if LocalPlayer.PlayerGui["Main (minimal)"]:FindFirstChild("ChooseTeam") then
+				Join(getgenv().lugiadev.Team)
+			end
+		end)
+	until LocalPlayer.Team ~= nil
+end
+
+local gaName = "Memwwmfnweiewfwef"
+local ga
+local aall = tick()
+
+if _G.HeartbeatConnection then
+	_G.HeartbeatConnection:Disconnect()
+	_G.HeartbeatConnection = nil
+end
+
+_G.HeartbeatConnection = RunService.Heartbeat:Connect(function()
+	local character = LocalPlayer.Character
+	if
+		tick() - aall > 0.5
+		and character
+		and character.PrimaryPart
+		and not character.PrimaryPart:FindFirstChild("NEWQL")
+	then
+		aall = tick()
+		local BodyVel = Instance.new("BodyVelocity", character.PrimaryPart)
+		BodyVel.Velocity = Vector3.new(0, 0, 0)
+		BodyVel.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+		BodyVel.P = 15000
+		BodyVel.Name = "NEWQL"
+	end
+    if ga then
+		local lookVector = character.PrimaryPart.CFrame.LookVector
+		character.PrimaryPart.CFrame = CFrame.new(ga.Position, ga.Position + lookVector)
+	end
+end)
+
+local function extractMinutesFromText(text)
+	local hours, minutes = string.match(text, "(%d+):(%d+)")
+	if hours and minutes then
+		return tonumber(hours) * 60 + tonumber(minutes)
+	end
+	return nil
+end
+
+local function tweenObjectToTarget(object, target, speed)
+	ga = workspace:FindFirstChild(gaName) or Instance.new("Part", workspace)
+	ga.Name = gaName
+	ga.Size = Vector3.new(0, 0, 0)
+	ga.CanCollide = false
+	ga.Anchored = true
+
+	if not object or not target then
+		warn("Object hoặc Target không tồn tại!")
+		return
+	end
+
+	local distance = (target.Position - object.Position).Magnitude
+	speed = speed or (distance < 800 and 500 or (distance > 800 and distance < 1500 and 500 or 325))
+	local time = distance / speed
+	local tweenInfo = TweenInfo.new(time, Enum.EasingStyle.Linear)
+	local properties = { Position = target.Position }
+	ga.CFrame = LocalPlayer.Character.PrimaryPart.CFrame
+
+	local tween = TweenService:Create(ga, tweenInfo, properties)
+	tween:Play()
+	tween.Completed:Wait()
+	ga = nil
+	return tween
+end
+
+local function sendStatusUpdate()
+	pcall(function()
+		request({
+			Url = getgenv().lugiadev.ToolUrl .. "/update-status",
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				account = LocalPlayer.Name,
+			}),
+		})
+	end)
+end
+
+local function sendScheduleRequest(minutes)
+	pcall(function()
+		request({
+			Url = getgenv().lugiadev.ToolUrl .. "/register-schedule",
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				account = LocalPlayer.Name,
+				minutes = minutes,
+			}),
+		})
+	end)
+end
+
+local function sendCloseRequest()
+	pcall(function()
+		request({
+			Url = getgenv().lugiadev.ToolUrl .. "/close-account",
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				account = LocalPlayer.Name,
+			}),
+		})
+	end)
+end
+
+local lastUpdateSent = tick()
+local isSent = false
+sendStatusUpdate()
+
+local function sendWebhook(message, customUrl)
+	pcall(function()
+		request({
+			Url = customUrl or getgenv().lugiadev.WebhookUrl,
+			Method = "POST",
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				content = tostring(LocalPlayer.Name) .. ": " .. tostring(message),
+			}),
+		})
+	end)
+end
+
+local function getBackpackFruit()
+	for _, path in pairs({ LocalPlayer.Backpack, LocalPlayer.Character }) do
+		for _, v in pairs(path:GetChildren()) do
+			if v.Name:find("Fruit") then
+				return v
+			end
+		end
+	end
+end
+
+local function GetDistance(target)
+    local hrp = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart
+    if not hrp or not target then
+        return math.huge
+    end
+
+    local pos = typeof(target) == "CFrame" and target.Position or target
+    return (pos - hrp.Position).Magnitude
+end
+
+
+local OriginalCFrame = CFrame.new(
+-12549.36, 337.30, -7486.71
+)
+
+local NewCFrame = OriginalCFrame * CFrame.new(0, 18, 0)
+
+local function serializeCFrame(cf)
+	return { Components = { cf:GetComponents() } }
+end
+
+local function deserializeCFrame(data)
+	if data and data.Components then
+		return CFrame.new(unpack(data.Components))
+	end
+	return nil
+end
+
+local function DropFruit()
+	local char = LocalPlayer.Character
+	local back = LocalPlayer.Backpack
+
+	for _, v in pairs(char:GetChildren()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			local eatRemote = v:FindFirstChild("EatRemote")
+			if eatRemote then
+				if eatRemote:IsA("RemoteFunction") then
+					eatRemote:InvokeServer("Drop")
+				else
+					eatRemote:FireServer("Drop")
+				end
+				print("Dropped:", v.Name)
+				return true
+			end
+		end
+	end
+
+	for _, v in pairs(back:GetChildren()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			v.Parent = char
+			task.wait(0.5)
+			local eatRemote = v:FindFirstChild("EatRemote")
+			if eatRemote then
+				if eatRemote:IsA("RemoteFunction") then
+					eatRemote:InvokeServer("Drop")
+				else
+					eatRemote:FireServer("Drop")
+				end
+				print("Dropped:", v.Name)
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function buyrandomfruit()
+	local success, result = pcall(function()
+		return CommF:InvokeServer("Cousin", "Buy")
+	end)
+	
+	if not success then
+		return false
+	end
+
+	local timeout = 0
+	local maxTimeout = 10
+	
+	local spinnerWindow
+	repeat
+		task.wait(0.1)
+		timeout = timeout + 0.1
+		spinnerWindow = playergui:FindFirstChild("SpinnerWindow")
+		
+		if timeout > maxTimeout then
+			return false
+		end
+	until spinnerWindow
+
+	local aboveSpinner = spinnerWindow:WaitForChild("AboveSpinner", 2)
+	if not aboveSpinner then return false end
+	
+	local navigation = aboveSpinner:WaitForChild("Navigation", 2)
+	if not navigation then return false end
+	
+	local button = navigation:WaitForChild("CloseButton", 2)
+	if not button then return false end
+
+	repeat
+		task.wait(0.1)
+		timeout = timeout + 0.1
+		
+		if timeout > maxTimeout then
+			return false
+		end
+	until button.Visible
+	
+	pcall(function()
+		for _, conn in pairs(getconnections(button.Activated)) do
+			conn:Fire()
+		end
+	end)
+	
+	return result
+end
+
+local function dropfruitpoint()
+	return {
+		["Creation"] = Vector3.new(-12627.03, 331.78, -8292.40),
+		["Spider"] = Vector3.new(-12511.43, 331.78, -8287.26),
+		["Sound"] = Vector3.new(-12505.09, 331.78, -8336.10),
+		["Phoenix"] = Vector3.new(-12618.69, 331.78, -8351.24),
+		["Lightning"] = Vector3.new(-12610.70, 331.78, -8422.12),
+		["Pain"] = Vector3.new(-12492.31, 331.78, -8408.71),
+		["Blizzard"] = Vector3.new(-12483.65, 331.78, -8465.32),
+		["Buddha"] = Vector3.new(-12607.63, 331.80, -7949.89),
+		["Portal"] =  Vector3.new(-12536.69, 331.80, -8152.58),
+		["Gravity"] =  Vector3.new(-12600.42, 331.80, -7942.62),
+		["Mammoth"] = Vector3.new(-12608.20, 331.80, -7979.60),
+		["T-Rex"] = Vector3.new(-12614.16, 331.80, -8007.69),
+		["Dough"] = Vector3.new(-12625.15, 331.80, -8059.37), 
+		["Venom"] = Vector3.new(-12637.01, 331.80, -8115.15),
+		["Control"] = Vector3.new(-12646.99, 331.80, -8162.12),
+		["Gas"] = Vector3.new(-12517.43, 331.80, -8152.94),
+		["Spirit"] = Vector3.new(-12513.12, 331.80, -8097.54),
+		["Tiger"] =  Vector3.new(-12500.72, 331.80, -8012.18),
+		["Yeti"] = Vector3.new(-12492.52, 331.80, -7951.05),
+		["Kitsune"] = Vector3.new(-12492.30, 331.80, -7897.14),
+		["Dragon"] = Vector3.new(-1173.86, 73.27, -398.82),
+		["fruit pulp"] = Vector3.new(-12565.40, 331.80, -8213.76),
+	}
+end
+
+
+local function GetCurrentFruitName()
+	local char = LocalPlayer.Character
+	local back = LocalPlayer.Backpack
+	
+	for _, v in pairs(char:GetChildren()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			return v.Name
+		end
+	end
+	
+	for _, v in pairs(back:GetChildren()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			return v.Name
+		end
+	end
+	
+	return nil
+end
+
+-- NEW: Get drop position for current fruit
+local function GetDropPosition()
+	local fruitPoints = dropfruitpoint()
+	local fruitName = GetCurrentFruitName()
+	
+	if not fruitName then
+		return nil
+	end
+	
+	local cleanName = fruitName:gsub("Fruit", ""):gsub("%s+", "")
+	
+	for name, point in pairs(fruitPoints) do
+		if name:lower():gsub("%s+", "") == cleanName:lower() then
+			print(" Found drop position for:", fruitName, "->", name)
+			return point
+		end
+	end
+	
+	print(" No position found for:", fruitName, "-> using 'fruit pulp'")
+	return fruitPoints["fruit pulp"]
+end
+
+local storage = isfile("FruitPos.json") and game:GetService("HttpService"):JSONDecode(readfile("FruitPos.json")) or {}
+task.spawn(function()
+	while task.wait() do
+		local succ, err = pcall(function()
+			if not getgenv().lugiadev.AutoRandom then
+				return
+			end
+
+			if game.PlaceId ~= 7449423635 then
+				ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelZou")
+				task.wait(1)
+				return
+			end
+
+			if tick() - lastUpdateSent >= 0.5 * 60 then
+				lastUpdateSent = tick()
+				sendStatusUpdate()
+			end
+
+			local FruitInventory = getBackpackFruit()
+			if FruitInventory then
+				local dropPos = GetDropPosition()
+				
+				if dropPos then
+					OriginalCFrame = CFrame.new(dropPos)
+				else
+					OriginalCFrame = storage[FruitInventory:GetAttribute("OriginalName")]
+							and deserializeCFrame(storage[FruitInventory:GetAttribute("OriginalName")])
+						or OriginalCFrame
+				end
+				
+				NewCFrame = OriginalCFrame * CFrame.new(0, 15, 0)
+				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
+				
+				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 8 then
+					sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
+					
+					local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
+					if bodyVel then
+						bodyVel.Velocity = Vector3.new(0, 0, 0)
+					end
+
+	                task.wait(1)
+					DropFruit()
+					
+					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
+					if bodyVel then
+						bodyVel.Velocity = Vector3.new(0, 5, 0)
+					end
+				end
+				return
+			end
+
+			local BuyRandomFruit = buyrandomfruit()
+			if BuyRandomFruit == true then
+				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
+					LocalPlayer.Character.PrimaryPart.CFrame.X,
+					200,
+					LocalPlayer.Character.PrimaryPart.CFrame.Z
+				)
+				return
+			elseif type(BuyRandomFruit) == "string" then
+				local Minutes = extractMinutesFromText(BuyRandomFruit)
+            if Minutes and not isSent then
+                isSent = true
+                   sendScheduleRequest(Minutes)
+                   sendCloseRequest()
+
+                task.spawn(function()
+                    task.wait(0.5)
+                    game:Shutdown()
+         end)
+end
+	 return
+	        end
+			if LocalPlayer.Data.LastSpawnPoint.Value ~= "Bar" then
+				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
+					LocalPlayer.Character.PrimaryPart.CFrame.X,
+					100,
+					LocalPlayer.Character.PrimaryPart.CFrame.Z
+				)
+				tweenObjectToTarget(
+					LocalPlayer.Character.PrimaryPart,
+					CFrame.new(-12549.36, 337.30, -7486.71),
+					315
+				)
+			end
+		end)
+
+		if not succ then
+			sendWebhook(tostring(err))
+		end
+
+		task.wait(1)
+	end
+end)
+
+
+local function getFruitList()
+    local fruits = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+            table.insert(fruits, v.Name)
+        end
+    end
+    return fruits
+end
+
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+if playerGui:FindFirstChild("FruitCounterUI") then
+    playerGui.FruitCounterUI:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FruitCounterUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 280, 0, 260)
+frame.Position = UDim2.new(0.5, -140, 0.5, -130)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BackgroundTransparency = 0.2
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 8)
+frameCorner.Parent = frame
+
+local dragging, dragInput, dragStart, startPos
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.Text = " Fruits in Server "
+title.Parent = frame
+
+local searchButton = Instance.new("TextButton")
+searchButton.Size = UDim2.new(0, 120, 0, 25)
+searchButton.Position = UDim2.new(0.5, -60, 0, 35)
+searchButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+searchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchButton.Font = Enum.Font.Gotham
+searchButton.TextSize = 14
+searchButton.Text = " Search Fruit"
+searchButton.BorderSizePixel = 0
+searchButton.Parent = frame
+
+local searchCorner = Instance.new("UICorner")
+searchCorner.CornerRadius = UDim.new(0, 4)
+searchCorner.Parent = searchButton
+
+local searchBox = Instance.new("ten fruit can tim")
+searchBox.Size = UDim2.new(1, -10, 0, 25)
+searchBox.Position = UDim2.new(0, 5, 0, 65)
+searchBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+searchBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+searchBox.PlaceholderText = "Enter fruit name..."
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 14
+searchBox.BorderSizePixel = 0
+searchBox.ClearTextOnFocus = false
+searchBox.Visible = false
+searchBox.Parent = frame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 4)
+boxCorner.Parent = searchBox
+
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, 0, 1, -100)
+scroll.Position = UDim2.new(0, 0, 0, 95)
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.ScrollBarThickness = 6
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.Parent = frame
+
+local function createLabel(name)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -10, 0, 22)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextSize = 14
+    lbl.Text = name
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    return lbl
+end
+
+local function updateFruitList()
+    for _, c in pairs(scroll:GetChildren()) do
+        if c:IsA("TextLabel") then 
+            c:Destroy() 
+        end
+    end
+    
+    local fruits = getFruitList()
+    local keyword = string.lower(searchBox.Text)
+    local filtered = {}
+    
+    for _, name in ipairs(fruits) do
+        if keyword == "" or string.find(string.lower(name), keyword, 1, true) then
+            table.insert(filtered, name)
+        end
+    end
+    
+    table.sort(filtered)
+    title.Text = " Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
+    
+    local y = 0
+    for _, name in ipairs(filtered) do
+        local lbl = createLabel("• " .. name)
+        lbl.Position = UDim2.new(0, 5, 0, y)
+        lbl.Parent = scroll
+        y = y + 24
+    end
+    
+    scroll.CanvasSize = UDim2.new(0, 0, 0, y)
+end
+
+task.spawn(function()
+    while task.wait(3) do
+        if screenGui.Parent then
+            updateFruitList()
+        else
+            break
+        end
+    end
+end)
+
+searchButton.MouseButton1Click:Connect(function()
+    searchBox.Visible = not searchBox.Visible
+    if searchBox.Visible then
+        searchBox:CaptureFocus()
+    end
+end)
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(updateFruitList)
+updateFruitList()
