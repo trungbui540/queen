@@ -451,7 +451,6 @@ end
 	end
 end)
 
-
 local function getFruitList()
     local fruits = {}
     for _, v in pairs(workspace:GetDescendants()) do
@@ -598,7 +597,6 @@ local function updateFruitList()
     
     table.sort(filtered)
     
-    -- Hiển thị số fruit inventory / server
     local remaining = checkFruitTrongBack()
     if remaining ~= -1 then
         title.Text = string.format("🍎 Fruits: %d/%d | Server: %d/%d", remaining, #initialFruits, #filtered, #fruits)
