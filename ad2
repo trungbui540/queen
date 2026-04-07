@@ -323,11 +323,13 @@ local function buyrandomfruit()
 		end
 	until button.Visible
 	
-	pcall(function()
-		for _, conn in pairs(getconnections(button.Activated)) do
-			conn:Fire()
-		end
-	end)
+    pcall(function()
+    for i = 1, 5 do
+        for _, conn in pairs(getconnections(button.Activated)) do
+            conn:Fire()
+           end
+        end
+    end)
 	
 	return result
 end
