@@ -656,12 +656,17 @@ local function updateFruitList()
 	
 	table.sort(filtered)
 	
-	local remaining = select(1, checkFruitTrongBack())
-	if remaining ~= -1 then
-		title.Text = string.format("🍎 Fruits: %d/%d | Server: %d/%d", remaining, #initialFruits, #filtered, #fruits)
-	else
-		title.Text = string.format("🍎 Server: %d/%d", #filtered, #fruits)
+	-- Đếm fruit trong backpack/character
+	local backpackCount = 0
+	for _, path in pairs({ LocalPlayer.Backpack, LocalPlayer.Character }) do
+		for _, v in pairs(path:GetChildren()) do
+			if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+				backpackCount = backpackCount + 1
+			end
+		end
 	end
+	
+	title.Text = string.format("🍎 Inv: %d | Server: %d", backpackCount, #filtered)
 	
 	local y = 0
 	for _, name in ipairs(filtered) do
