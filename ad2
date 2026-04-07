@@ -15,78 +15,6 @@ local changeAccTriggered = false
 local lastCheckTime = 0
 local initialFruits = {}
 
-local function getAllFruitsInInventory()
-	local fruits = {}
-	
-	for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-		if item:IsA("Tool") and string.find(item.Name, "Fruit") then
-			table.insert(fruits, item.Name)
-		end
-	end
-	
-	local character = LocalPlayer.Character
-	if character then
-		for _, item in pairs(character:GetChildren()) do
-			if item:IsA("Tool") and string.find(item.Name, "Fruit") then
-				local alreadyAdded = false
-				for _, fruitName in ipairs(fruits) do
-					if fruitName == item.Name then
-						alreadyAdded = true
-						break
-					end
-				end
-				if not alreadyAdded then
-					table.insert(fruits, item.Name)
-				end
-			end
-		end
-	end
-	
-	return fruits
-end
-
-local function initializeFruitList()
-	initialFruits = getAllFruitsInInventory()
-	
-	if #initialFruits > 0 then
-		print("═══════════════════════════════════════════════════")
-		print("[FRUIT INIT] Đã phát hiện " .. #initialFruits .. " fruits trong inventory:")
-		for i, fruitName in ipairs(initialFruits) do
-			print(("   %d. %s"):format(i, fruitName))
-		end
-		print("═══════════════════════════════════════════════════")
-		sendWebhook(" Khởi động với " .. #initialFruits .. " fruits")
-	else
-		warn("[FRUIT INIT] Không tìm thấy fruit nào trong inventory!")
-	end
-	
-	return #initialFruits > 0
-end
-
-local function checkFruitTrongBack()
-	if #initialFruits == 0 then
-		local hasInit = initializeFruitList()
-		if not hasInit then
-			return -1
-		end
-	end
-	
-	local currentFruits = getAllFruitsInInventory()
-	local remaining = 0
-	local foundFruits = {}
-	
-	for _, initialFruit in ipairs(initialFruits) do
-		for _, currentFruit in ipairs(currentFruits) do
-			if currentFruit == initialFruit then
-				remaining = remaining + 1
-				table.insert(foundFruits, currentFruit)
-				break
-			end
-		end
-	end
-	
-	return remaining, foundFruits
-end
 
 local function writeTriggerFile()
 	if changeAccTriggered then 
@@ -102,12 +30,10 @@ local function writeTriggerFile()
 	
 	if success then
 		changeAccTriggered = true
-		print("═══════════════════════════════════════════════════")
-		print("[CHANGEACC] ⚠️ HẾT FRUIT - TRIGGER CHANGE ACCOUNT!")
+		print("[CHANGEACC]  HẾT FRUIT - TRIGGER CHANGE ACCOUNT!")
 		print("[CHANGEACC] File:", fileName)
 		print("[CHANGEACC] Content:", content)
 		print("[CHANGEACC] Thời gian:", os.date("%H:%M:%S"))
-		print("═══════════════════════════════════════════════════")
 		sendWebhook(" HẾT FRUIT - Đã tạo file trigger change account!")
 		return true
 	else
@@ -122,23 +48,6 @@ local function checkAndTriggerChangeAcc()
 	end
 	
 	if changeAccTriggered then 
-		return
-	end
-	
-	local currentTime = tick()
-	if currentTime - lastCheckTime < CHECK_INTERVAL then
-		return
-	end
-	lastCheckTime = currentTime
-	
-	local remaining, foundFruits = checkFruitTrongBack()
-	
-	if remaining == -1 then
-		return
-	end
-	
-	if remaining > 0 then
-		print(("[FRUIT CHECK] Còn %d/%d fruits"):format(remaining, #initialFruits))
 		return
 	end
 	
@@ -481,7 +390,7 @@ local function GetDropPosition()
 	
 	for name, point in pairs(fruitPoints) do
 		if name:lower():gsub("%s+", "") == cleanName:lower() then
-			print("✓ Found drop position for:", fruitName, "->", name)
+			print(" Found drop position for:", fruitName, "->", name)
 			return point
 		end
 	end
@@ -493,8 +402,11 @@ end
 local storage = isfile("FruitPos.json") and game:GetService("HttpService"):JSONDecode(readfile("FruitPos.json")) or {}
 
 task.spawn(function()
-	task.wait(1)
-	initializeFruitList()
+	while task.wait(1) do
+		if getgenv().lugiadev.AutoChangeAcc and not changeAccTriggered then
+			checkAndTriggerChangeAcc()
+		end
+	end
 end)
 
 task.spawn(function()
@@ -538,7 +450,7 @@ task.spawn(function()
 						bodyVel.Velocity = Vector3.new(0, 0, 0)
 					end
 
-	                task.wait(1)
+	                task.wait(0.5)
 					DropFruit()
 					
 					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
