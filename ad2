@@ -452,7 +452,6 @@ task.spawn(function()
 						bodyVel.Velocity = Vector3.new(0, 0, 0)
 					end
 
-	                task.wait(0.2)
 					DropFruit()
 					
 					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
