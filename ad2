@@ -266,7 +266,7 @@ local function DropFruit()
 	for _, v in pairs(back:GetChildren()) do
 		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
 			v.Parent = char
-			task.wait(0.5)
+			task.wait(0.1)
 			local eatRemote = v:FindFirstChild("EatRemote")
 			if eatRemote then
 				if eatRemote:IsA("RemoteFunction") then
