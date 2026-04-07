@@ -16,18 +16,26 @@ local lastUpdateSent = tick()
 local isSent = false
 local initialFruits = {}
 
--- Forward declare
-local sendWebhook
 
 local function writeTriggerFile()
-	if changeAccTriggered then return false end
+	if changeAccTriggered then 
+		return false
+	end
+	
 	local fileName = tostring(LocalPlayer.Name) .. ".txt"
-	local success = pcall(function() writefile(fileName, "Yummytool") end)
+	local content = "Yummytool"
+	
+	local success = pcall(function()
+		writefile(fileName, content)
+	end)
+	
 	if success then
 		changeAccTriggered = true
-		print("[CHANGEACC] HẾT FRUIT - TRIGGER CHANGE ACCOUNT!")
+		print("[CHANGEACC]  HẾT FRUIT - TRIGGER CHANGE ACCOUNT!")
+		print("[CHANGEACC] File:", fileName)
+		print("[CHANGEACC] Content:", content)
 		print("[CHANGEACC] Thời gian:", os.date("%H:%M:%S"))
-		sendWebhook("HẾT FRUIT - Đã tạo file trigger change account!")
+		sendWebhook(" HẾT FRUIT - Đã tạo file trigger change account!")
 		return true
 	else
 		warn("[CHANGEACC] fail file trigger:", fileName)
@@ -36,12 +44,21 @@ local function writeTriggerFile()
 end
 
 local function checkAndTriggerChangeAcc()
-	if not getgenv().lugiadev.AutoChangeAcc or changeAccTriggered then return end
-	local playerCount = #Players:GetPlayers()
-	if playerCount < 2 then
-		print(("[CHANGEACC] Chưa đủ điều kiện - Chỉ có %d người (cần ≥2)"):format(playerCount))
+	if not getgenv().lugiadev.AutoChangeAcc then 
+		return 
+	end
+	
+	if changeAccTriggered then 
 		return
 	end
+	
+	local playerCount = #game.Players:GetPlayers()
+	if playerCount < 2 then
+		print(("[CHANGEACC] Chưa đủ điều kiện - Chỉ có %d người trong server (cần ≥2)"):format(playerCount))
+		return
+	end
+	
+	print(("[CHANGEACC] Server có %d người - Triggering change account..."):format(playerCount))
 	writeTriggerFile()
 end
 
@@ -76,8 +93,12 @@ end
 
 _G.HeartbeatConnection = RunService.Heartbeat:Connect(function()
 	local character = LocalPlayer.Character
-	if not character then return end
-	if tick() - aall > 0.5 and character.PrimaryPart and not character.PrimaryPart:FindFirstChild("NEWQL") then
+	if
+		tick() - aall > 0.5
+		and character
+		and character.PrimaryPart
+		and not character.PrimaryPart:FindFirstChild("NEWQL")
+	then
 		aall = tick()
 		local BodyVel = Instance.new("BodyVelocity", character.PrimaryPart)
 		BodyVel.Velocity = Vector3.new(0, 0, 0)
@@ -85,7 +106,7 @@ _G.HeartbeatConnection = RunService.Heartbeat:Connect(function()
 		BodyVel.P = 15000
 		BodyVel.Name = "NEWQL"
 	end
-	if ga and character.PrimaryPart then
+    if ga then
 		local lookVector = character.PrimaryPart.CFrame.LookVector
 		character.PrimaryPart.CFrame = CFrame.new(ga.Position, ga.Position + lookVector)
 	end
@@ -111,13 +132,14 @@ local function tweenObjectToTarget(object, target, speed)
 		return
 	end
 
-	local distance = (target.Position - object.Position).Magnitude
-	speed = speed or (distance < 300 and 800 or (distance < 800 and 600 or 400))
+    local distance = (target.Position - object.Position).Magnitude
+    speed = speed or (distance < 300 and 800 or (distance < 800 and 600 or 400))
 	local time = distance / speed
 	local tweenInfo = TweenInfo.new(time, Enum.EasingStyle.Linear)
+	local properties = { Position = target.Position }
 	ga.CFrame = LocalPlayer.Character.PrimaryPart.CFrame
 
-	local tween = TweenService:Create(ga, tweenInfo, { Position = target.Position })
+	local tween = TweenService:Create(ga, tweenInfo, properties)
 	tween:Play()
 	tween.Completed:Wait()
 	ga = nil
@@ -129,8 +151,12 @@ local function sendStatusUpdate()
 		request({
 			Url = getgenv().lugiadev.ToolUrl .. "/update-status",
 			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = game:GetService("HttpService"):JSONEncode({ account = LocalPlayer.Name }),
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				account = LocalPlayer.Name,
+			}),
 		})
 	end)
 end
@@ -140,8 +166,13 @@ local function sendScheduleRequest(minutes)
 		request({
 			Url = getgenv().lugiadev.ToolUrl .. "/register-schedule",
 			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = game:GetService("HttpService"):JSONEncode({ account = LocalPlayer.Name, minutes = minutes }),
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				account = LocalPlayer.Name,
+				minutes = minutes,
+			}),
 		})
 	end)
 end
@@ -151,18 +182,28 @@ local function sendCloseRequest()
 		request({
 			Url = getgenv().lugiadev.ToolUrl .. "/close-account",
 			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = game:GetService("HttpService"):JSONEncode({ account = LocalPlayer.Name }),
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
+			Body = game:GetService("HttpService"):JSONEncode({
+				account = LocalPlayer.Name,
+			}),
 		})
 	end)
 end
 
-sendWebhook = function(message, customUrl)
+local lastUpdateSent = tick()
+local isSent = false
+sendStatusUpdate()
+
+local function sendWebhook(message, customUrl)
 	pcall(function()
 		request({
 			Url = customUrl or getgenv().lugiadev.WebhookUrl,
 			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
+			Headers = {
+				["Content-Type"] = "application/json",
+			},
 			Body = game:GetService("HttpService"):JSONEncode({
 				content = tostring(LocalPlayer.Name) .. ": " .. tostring(message),
 			}),
@@ -170,18 +211,32 @@ sendWebhook = function(message, customUrl)
 	end)
 end
 
-sendStatusUpdate()
-
 local function getBackpackFruit()
 	for _, path in pairs({ LocalPlayer.Backpack, LocalPlayer.Character }) do
 		for _, v in pairs(path:GetChildren()) do
-			if v.Name:find("Fruit") then return v end
+			if v.Name:find("Fruit") then
+				return v
+			end
 		end
 	end
 end
 
+local function GetDistance(target)
+    local hrp = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart
+    if not hrp or not target then
+        return math.huge
+    end
+
+    local pos = typeof(target) == "CFrame" and target.Position or target
+    return (pos - hrp.Position).Magnitude
+end
+
 local OriginalCFrame = CFrame.new(-12549.36, 337.30, -7486.71)
 local NewCFrame = OriginalCFrame * CFrame.new(0, 18, 0)
+
+local function serializeCFrame(cf)
+	return { Components = { cf:GetComponents() } }
+end
 
 local function deserializeCFrame(data)
 	if data and data.Components then
@@ -198,8 +253,11 @@ local function DropFruit()
 		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
 			local eatRemote = v:FindFirstChild("EatRemote")
 			if eatRemote then
-				if eatRemote:IsA("RemoteFunction") then eatRemote:InvokeServer("Drop")
-				else eatRemote:FireServer("Drop") end
+				if eatRemote:IsA("RemoteFunction") then
+					eatRemote:InvokeServer("Drop")
+				else
+					eatRemote:FireServer("Drop")
+				end
 				print("Dropped:", v.Name)
 				return true
 			end
@@ -212,8 +270,11 @@ local function DropFruit()
 			task.wait(0.1)
 			local eatRemote = v:FindFirstChild("EatRemote")
 			if eatRemote then
-				if eatRemote:IsA("RemoteFunction") then eatRemote:InvokeServer("Drop")
-				else eatRemote:FireServer("Drop") end
+				if eatRemote:IsA("RemoteFunction") then
+					eatRemote:InvokeServer("Drop")
+				else
+					eatRemote:FireServer("Drop")
+				end
 				print("Dropped:", v.Name)
 				return true
 			end
@@ -226,40 +287,51 @@ local function buyrandomfruit()
 	local success, result = pcall(function()
 		return CommF:InvokeServer("Cousin", "Buy")
 	end)
-	if not success then return false end
+	
+	if not success then
+		return false
+	end
 
 	local timeout = 0
 	local maxTimeout = 10
+	
 	local spinnerWindow
-
 	repeat
 		task.wait(0.1)
-		timeout += 0.1
+		timeout = timeout + 0.1
 		spinnerWindow = playergui:FindFirstChild("SpinnerWindow")
-		if timeout > maxTimeout then return false end
+		
+		if timeout > maxTimeout then
+			return false
+		end
 	until spinnerWindow
 
 	local aboveSpinner = spinnerWindow:WaitForChild("AboveSpinner", 2)
 	if not aboveSpinner then return false end
+	
 	local navigation = aboveSpinner:WaitForChild("Navigation", 2)
 	if not navigation then return false end
+	
 	local button = navigation:WaitForChild("CloseButton", 2)
 	if not button then return false end
 
 	repeat
 		task.wait(0.1)
-		timeout += 0.1
-		if timeout > maxTimeout then return false end
-	until button.Visible
-
-	pcall(function()
-		for i = 1, 5 do
-			for _, conn in pairs(getconnections(button.Activated)) do
-				conn:Fire()
-			end
+		timeout = timeout + 0.1
+		
+		if timeout > maxTimeout then
+			return false
 		end
-	end)
-
+	until button.Visible
+	
+    pcall(function()
+    for i = 1, 5 do
+        for _, conn in pairs(getconnections(button.Activated)) do
+            conn:Fire()
+           end
+        end
+    end)
+	
 	return result
 end
 
@@ -273,16 +345,16 @@ local function dropfruitpoint()
 		["Pain"] = Vector3.new(-12492.31, 331.78, -8408.71),
 		["Blizzard"] = Vector3.new(-12483.65, 331.78, -8465.32),
 		["Buddha"] = Vector3.new(-12607.63, 331.80, -7949.89),
-		["Portal"] = Vector3.new(-12536.69, 331.80, -8152.58),
-		["Gravity"] = Vector3.new(-12600.42, 331.80, -7942.62),
+		["Portal"] =  Vector3.new(-12536.69, 331.80, -8152.58),
+		["Gravity"] =  Vector3.new(-12600.42, 331.80, -7942.62),
 		["Mammoth"] = Vector3.new(-12608.20, 331.80, -7979.60),
 		["T-Rex"] = Vector3.new(-12614.16, 331.80, -8007.69),
-		["Dough"] = Vector3.new(-12625.15, 331.80, -8059.37),
+		["Dough"] = Vector3.new(-12625.15, 331.80, -8059.37), 
 		["Venom"] = Vector3.new(-12637.01, 331.80, -8115.15),
 		["Control"] = Vector3.new(-12646.99, 331.80, -8162.12),
 		["Gas"] = Vector3.new(-12517.43, 331.80, -8152.94),
 		["Spirit"] = Vector3.new(-12513.12, 331.80, -8097.54),
-		["Tiger"] = Vector3.new(-12500.72, 331.80, -8012.18),
+		["Tiger"] =  Vector3.new(-12500.72, 331.80, -8012.18),
 		["Yeti"] = Vector3.new(-12492.52, 331.80, -7951.05),
 		["Kitsune"] = Vector3.new(-12492.30, 331.80, -7897.14),
 		["Dragon"] = Vector3.new(-1173.86, 73.27, -398.82),
@@ -291,33 +363,47 @@ local function dropfruitpoint()
 end
 
 local function GetCurrentFruitName()
-	for _, path in pairs({ LocalPlayer.Character, LocalPlayer.Backpack }) do
-		for _, v in pairs(path:GetChildren()) do
-			if v:IsA("Tool") and v:FindFirstChild("Fruit") then
-				return v.Name
-			end
+	local char = LocalPlayer.Character
+	local back = LocalPlayer.Backpack
+	
+	for _, v in pairs(char:GetChildren()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			return v.Name
 		end
 	end
+	
+	for _, v in pairs(back:GetChildren()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			return v.Name
+		end
+	end
+	
 	return nil
 end
 
 local function GetDropPosition()
 	local fruitPoints = dropfruitpoint()
 	local fruitName = GetCurrentFruitName()
-	if not fruitName then return nil end
-
+	
+	if not fruitName then
+		return nil
+	end
+	
 	local cleanName = fruitName:gsub("Fruit", ""):gsub("%s+", "")
+	
 	for name, point in pairs(fruitPoints) do
 		if name:lower():gsub("%s+", "") == cleanName:lower() then
+			print(" Found drop position for:", fruitName, "->", name)
 			return point
 		end
 	end
+	
+	print("No position found for:", fruitName, "-> using 'fruit pulp'")
 	return fruitPoints["fruit pulp"]
 end
 
 local storage = isfile("FruitPos.json") and game:GetService("HttpService"):JSONDecode(readfile("FruitPos.json")) or {}
 
--- AutoChangeAcc loop
 task.spawn(function()
 	while task.wait(1) do
 		if getgenv().lugiadev.AutoChangeAcc and not changeAccTriggered then
@@ -326,11 +412,12 @@ task.spawn(function()
 	end
 end)
 
--- Main loop
 task.spawn(function()
 	while task.wait() do
 		local succ, err = pcall(function()
-			if not getgenv().lugiadev.AutoRandom then return end
+			if not getgenv().lugiadev.AutoRandom then
+				return
+			end
 
 			if game.PlaceId ~= 7449423635 then
 				ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelZou")
@@ -338,7 +425,7 @@ task.spawn(function()
 				return
 			end
 
-			if tick() - lastUpdateSent >= 30 then
+			if tick() - lastUpdateSent >= 0.5 * 60 then
 				lastUpdateSent = tick()
 				sendStatusUpdate()
 			end
@@ -346,27 +433,32 @@ task.spawn(function()
 			local FruitInventory = getBackpackFruit()
 			if FruitInventory then
 				local dropPos = GetDropPosition()
+				
 				if dropPos then
 					OriginalCFrame = CFrame.new(dropPos)
 				else
 					OriginalCFrame = storage[FruitInventory:GetAttribute("OriginalName")]
-						and deserializeCFrame(storage[FruitInventory:GetAttribute("OriginalName")])
+							and deserializeCFrame(storage[FruitInventory:GetAttribute("OriginalName")])
 						or OriginalCFrame
 				end
-
+				
 				NewCFrame = OriginalCFrame * CFrame.new(0, 15, 0)
 				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
-
+				
 				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 15 then
-					sendWebhook("Start dropping: " .. tostring(FruitInventory:GetAttribute("OriginalName")))
-
+					sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
+					
 					local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
-					if bodyVel then bodyVel.Velocity = Vector3.new(0, 0, 0) end
+					if bodyVel then
+						bodyVel.Velocity = Vector3.new(0, 0, 0)
+					end
 
 					DropFruit()
-
+					
 					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
-					if bodyVel then bodyVel.Velocity = Vector3.new(0, 5, 0) end
+					if bodyVel then
+						bodyVel.Velocity = Vector3.new(0, 5, 0)
+					end
 				end
 				return
 			end
@@ -374,7 +466,8 @@ task.spawn(function()
 			local BuyRandomFruit = buyrandomfruit()
 			if BuyRandomFruit == true then
 				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
-					LocalPlayer.Character.PrimaryPart.CFrame.X, 200,
+					LocalPlayer.Character.PrimaryPart.CFrame.X,
+					200,
 					LocalPlayer.Character.PrimaryPart.CFrame.Z
 				)
 				return
@@ -384,14 +477,19 @@ task.spawn(function()
 					isSent = true
 					sendScheduleRequest(Minutes)
 					sendCloseRequest()
-					task.spawn(function() task.wait(0.2) game:Shutdown() end)
+
+					task.spawn(function()
+						task.wait(0.2)
+						game:Shutdown()
+					end)
 				end
 				return
 			end
-
+			
 			if LocalPlayer.Data.LastSpawnPoint.Value ~= "Bar" then
 				LocalPlayer.Character.PrimaryPart.CFrame = CFrame.new(
-					LocalPlayer.Character.PrimaryPart.CFrame.X, 100,
+					LocalPlayer.Character.PrimaryPart.CFrame.X,
+					100,
 					LocalPlayer.Character.PrimaryPart.CFrame.Z
 				)
 				tweenObjectToTarget(
@@ -402,12 +500,25 @@ task.spawn(function()
 			end
 		end)
 
-		if not succ then sendWebhook(tostring(err)) end
+		if not succ then
+			sendWebhook(tostring(err))
+		end
+
 		task.wait(1)
 	end
 end)
 
--- GUI
+local function getFruitList()
+    local fruits = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+            table.insert(fruits, v.Name)
+        end
+    end
+    return fruits
+end
+
+-- Fruit GUI
 local function getFruitList()
 	local fruits = {}
 	for _, v in pairs(workspace:GetDescendants()) do
@@ -418,7 +529,7 @@ local function getFruitList()
 	return fruits
 end
 
-local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 if playerGui:FindFirstChild("FruitCounterUI") then playerGui.FruitCounterUI:Destroy() end
 
 local screenGui = Instance.new("ScreenGui")
@@ -466,6 +577,7 @@ UserInputService.InputChanged:Connect(function(input)
 	if input == dragInput and dragging then update(input) end
 end)
 
+-- GUI Elements
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
@@ -486,7 +598,9 @@ searchButton.Text = "🔍 Search"
 searchButton.BorderSizePixel = 0
 searchButton.Parent = frame
 
-Instance.new("UICorner", searchButton).CornerRadius = UDim.new(0, 4)
+local searchCorner = Instance.new("UICorner")
+searchCorner.CornerRadius = UDim.new(0, 4)
+searchCorner.Parent = searchButton
 
 local searchBox = Instance.new("TextBox")
 searchBox.Size = UDim2.new(1, -10, 0, 25)
@@ -501,7 +615,9 @@ searchBox.ClearTextOnFocus = false
 searchBox.Visible = false
 searchBox.Parent = frame
 
-Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 4)
+boxCorner.Parent = searchBox
 
 local scroll = Instance.new("ScrollingFrame")
 scroll.Size = UDim2.new(1, 0, 1, -100)
@@ -528,39 +644,37 @@ local function updateFruitList()
 	for _, c in pairs(scroll:GetChildren()) do
 		if c:IsA("TextLabel") then c:Destroy() end
 	end
-
+	
 	local fruits = getFruitList()
 	local keyword = string.lower(searchBox.Text)
 	local filtered = {}
-
+	
 	for _, name in ipairs(fruits) do
 		if keyword == "" or string.find(string.lower(name), keyword, 1, true) then
 			table.insert(filtered, name)
 		end
 	end
-
+	
 	table.sort(filtered)
-
-	-- Đếm fruit trong inventory
+	
+	-- Đếm fruit trong backpack/character
 	local backpackCount = 0
 	for _, path in pairs({ LocalPlayer.Backpack, LocalPlayer.Character }) do
-		if path then
-			for _, v in pairs(path:GetChildren()) do
-				if v:IsA("Tool") and v:FindFirstChild("Fruit") then
-					backpackCount += 1
-				end
+		for _, v in pairs(path:GetChildren()) do
+			if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+				backpackCount = backpackCount + 1
 			end
 		end
 	end
-
+	
 	title.Text = string.format("🍎 Inv: %d | Server: %d", backpackCount, #filtered)
-
+	
 	local y = 0
 	for _, name in ipairs(filtered) do
 		local lbl = createLabel("• " .. name)
 		lbl.Position = UDim2.new(0, 5, 0, y)
 		lbl.Parent = scroll
-		y += 24
+		y = y + 24
 	end
 	scroll.CanvasSize = UDim2.new(0, 0, 0, y)
 end
@@ -577,4 +691,3 @@ searchButton.MouseButton1Click:Connect(function()
 end)
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(updateFruitList)
-updateFruitList()
