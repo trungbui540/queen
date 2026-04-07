@@ -131,8 +131,8 @@ local function tweenObjectToTarget(object, target, speed)
 		return
 	end
 
-	local distance = (target.Position - object.Position).Magnitude
-	speed = speed or (distance < 800 and 500 or (distance > 800 and distance < 1500 and 500 or 325))
+    local distance = (target.Position - object.Position).Magnitude
+    speed = speed or (distance < 300 and 800 or (distance < 800 and 600 or 400))
 	local time = distance / speed
 	local tweenInfo = TweenInfo.new(time, Enum.EasingStyle.Linear)
 	local properties = { Position = target.Position }
@@ -444,7 +444,7 @@ task.spawn(function()
 				NewCFrame = OriginalCFrame * CFrame.new(0, 15, 0)
 				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
 				
-				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 8 then
+				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 15 then
 					sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
 					
 					local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
