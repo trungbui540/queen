@@ -450,7 +450,7 @@ task.spawn(function()
 						bodyVel.Velocity = Vector3.new(0, 0, 0)
 					end
 
-	                task.wait(0.5)
+	                task.wait(0.2)
 					DropFruit()
 					
 					bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
@@ -477,7 +477,7 @@ task.spawn(function()
 					sendCloseRequest()
 
 					task.spawn(function()
-						task.wait(0.5)
+						task.wait(0.2)
 						game:Shutdown()
 					end)
 				end
