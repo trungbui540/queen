@@ -517,11 +517,19 @@ local function getFruitList()
     return fruits
 end
 
-local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-if playerGui:FindFirstChild("FruitCounterUI") then
-    playerGui.FruitCounterUI:Destroy()
+-- Fruit GUI
+local function getFruitList()
+	local fruits = {}
+	for _, v in pairs(workspace:GetDescendants()) do
+		if v:IsA("Tool") and v:FindFirstChild("Fruit") then
+			table.insert(fruits, v.Name)
+		end
+	end
+	return fruits
 end
+
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+if playerGui:FindFirstChild("FruitCounterUI") then playerGui.FruitCounterUI:Destroy() end
 
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "FruitCounterUI"
@@ -540,38 +548,35 @@ local frameCorner = Instance.new("UICorner")
 frameCorner.CornerRadius = UDim.new(0, 8)
 frameCorner.Parent = frame
 
+-- Draggable
 local dragging, dragInput, dragStart, startPos
 local function update(input)
-    local delta = input.Position - dragStart
-    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	local delta = input.Position - dragStart
+	frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
 frame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = frame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then dragging = false end
+		end)
+	end
 end)
 
 frame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
 end)
 
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then update(input) end
 end)
 
+-- GUI Elements
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundTransparency = 1
@@ -588,7 +593,7 @@ searchButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 searchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 searchButton.Font = Enum.Font.Gotham
 searchButton.TextSize = 14
-searchButton.Text = "🔍 Search Fruit"
+searchButton.Text = "🔍 Search"
 searchButton.BorderSizePixel = 0
 searchButton.Parent = frame
 
@@ -623,71 +628,60 @@ scroll.BorderSizePixel = 0
 scroll.Parent = frame
 
 local function createLabel(name)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -10, 0, 22)
-    lbl.BackgroundTransparency = 1
-    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 14
-    lbl.Text = name
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    return lbl
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, -10, 0, 22)
+	lbl.BackgroundTransparency = 1
+	lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 14
+	lbl.Text = name
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	return lbl
 end
 
 local function updateFruitList()
-    for _, c in pairs(scroll:GetChildren()) do
-        if c:IsA("TextLabel") then 
-            c:Destroy() 
-        end
-    end
-    
-    local fruits = getFruitList()
-    local keyword = string.lower(searchBox.Text)
-    local filtered = {}
-    
-    for _, name in ipairs(fruits) do
-        if keyword == "" or string.find(string.lower(name), keyword, 1, true) then
-            table.insert(filtered, name)
-        end
-    end
-    
-    table.sort(filtered)
-    
-    -- Hiển thị số fruit inventory / server
-    local remaining = checkFruitTrongBack()
-    if remaining ~= -1 then
-        title.Text = string.format("🍎 Fruits: %d/%d | Server: %d/%d", remaining, #initialFruits, #filtered, #fruits)
-    else
-        title.Text = "🍎 Fruits: " .. tostring(#filtered) .. "/" .. tostring(#fruits)
-    end
-    
-    local y = 0
-    for _, name in ipairs(filtered) do
-        local lbl = createLabel("• " .. name)
-        lbl.Position = UDim2.new(0, 5, 0, y)
-        lbl.Parent = scroll
-        y = y + 24
-    end
-    
-    scroll.CanvasSize = UDim2.new(0, 0, 0, y)
+	for _, c in pairs(scroll:GetChildren()) do
+		if c:IsA("TextLabel") then c:Destroy() end
+	end
+	
+	local fruits = getFruitList()
+	local keyword = string.lower(searchBox.Text)
+	local filtered = {}
+	
+	for _, name in ipairs(fruits) do
+		if keyword == "" or string.find(string.lower(name), keyword, 1, true) then
+			table.insert(filtered, name)
+		end
+	end
+	
+	table.sort(filtered)
+	
+	local remaining = select(1, checkFruitTrongBack())
+	if remaining ~= -1 then
+		title.Text = string.format("🍎 Fruits: %d/%d | Server: %d/%d", remaining, #initialFruits, #filtered, #fruits)
+	else
+		title.Text = string.format("🍎 Server: %d/%d", #filtered, #fruits)
+	end
+	
+	local y = 0
+	for _, name in ipairs(filtered) do
+		local lbl = createLabel("• " .. name)
+		lbl.Position = UDim2.new(0, 5, 0, y)
+		lbl.Parent = scroll
+		y = y + 24
+	end
+	scroll.CanvasSize = UDim2.new(0, 0, 0, y)
 end
 
 task.spawn(function()
-    while task.wait(3) do
-        if screenGui.Parent then
-            updateFruitList()
-        else
-            break
-        end
-    end
+	while task.wait(3) do
+		if screenGui.Parent then updateFruitList() end
+	end
 end)
 
 searchButton.MouseButton1Click:Connect(function()
-    searchBox.Visible = not searchBox.Visible
-    if searchBox.Visible then
-        searchBox:CaptureFocus()
-    end
+	searchBox.Visible = not searchBox.Visible
+	if searchBox.Visible then searchBox:CaptureFocus() end
 end)
 
 searchBox:GetPropertyChangedSignal("Text"):Connect(updateFruitList)
-updateFruitList()
