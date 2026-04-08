@@ -351,7 +351,7 @@ local function dropfruitpoint()
 		["T-Rex"] = Vector3.new(-12614.16, 331.80, -8007.69),
 		["Dough"] = Vector3.new(-12625.15, 331.80, -8059.37), 
 		["Venom"] = Vector3.new(-12637.01, 331.80, -8115.15),
-		["Control"] = Vector3.new(-12646.99, 331.80, -8162.12),
+		["Lightning"] = Vector3.new(-12646.99, 331.80, -8162.12),
 		["Gas"] = Vector3.new(-12517.43, 331.80, -8152.94),
 		["Spirit"] = Vector3.new(-12513.12, 331.80, -8097.54),
 		["Tiger"] =  Vector3.new(-12500.72, 331.80, -8012.18),
