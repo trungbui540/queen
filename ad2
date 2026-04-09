@@ -444,7 +444,7 @@ task.spawn(function()
 				NewCFrame = OriginalCFrame * CFrame.new(0, 45, 0)
 				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
 				
-				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 10 then
+				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 15 then
 					sendWebhook("Start dropping: " .. FruitInventory:GetAttribute("OriginalName"))
 					
 					local bodyVel = LocalPlayer.Character.PrimaryPart:FindFirstChildOfClass("BodyVelocity")
@@ -478,6 +478,7 @@ task.spawn(function()
 					sendCloseRequest()
 
 					task.spawn(function()
+                        task.wait(0.1)
 						game:Shutdown()
 					end)
 				end
