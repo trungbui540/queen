@@ -478,7 +478,6 @@ task.spawn(function()
 					sendCloseRequest()
 
 					task.spawn(function()
-						task.wait(0.2)
 						game:Shutdown()
 					end)
 				end
