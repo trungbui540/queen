@@ -441,7 +441,7 @@ task.spawn(function()
 						or OriginalCFrame
 				end
 				
-				NewCFrame = OriginalCFrame * CFrame.new(0, 25, 0)
+				NewCFrame = OriginalCFrame * CFrame.new(0, 45, 0)
 				tweenObjectToTarget(LocalPlayer.Character.PrimaryPart, NewCFrame, 340)
 				
 				if (LocalPlayer.Character.PrimaryPart.Position - NewCFrame.Position).Magnitude < 25 then
