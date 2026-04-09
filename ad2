@@ -357,7 +357,6 @@ local function dropfruitpoint()
 		["Tiger"] =  Vector3.new(-12500.72, 331.80, -8012.18),
 		["Yeti"] = Vector3.new(-12492.52, 331.80, -7951.05),
 		["Kitsune"] = Vector3.new(-12492.30, 331.80, -7897.14),
-		["Love"] = Vector3.new(-1173.86, 73.27, -398.82),
 		["fruit pulp"] = Vector3.new(-12565.40, 331.80, -8213.76),
 	}
 end
